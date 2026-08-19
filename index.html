@@ -271,15 +271,16 @@
 
         // Gesamtübersicht pro Spieler initialisieren
         if (!playerTotals[name]) {
-          playerTotals[name] = { name, total: 0, gewonnen: 0, koenigWon: 0 };
+          playerTotals[name] = { name, total: 0, gewonnen: 0, koenigWon: 0, koenigTotal: 0 };
         }
 
         const isKoenigRow = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
 
-        // Für das König-Balkendiagramm: Summe aller Zeilen mit Spiel = 'König' auf 'Gewonnen'
+        // Für das König-Balkendiagramm & Quote: Summe aller Zeilen mit Spiel = 'König'
         if (isKoenigRow) {
           hasExplicitKoenigRows = true;
           playerTotals[name].koenigWon += gewonnen;
+          playerTotals[name].koenigTotal += total;
           return;
         }
 
@@ -515,22 +516,22 @@
         `;
       }).join('');
 
-      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der Wertungen (Ramsch, Offensiv, Solo, Contra, König)
+      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (Ramsch, Offensiv, Solo, Contra, König)
       const jahresContainer = document.getElementById('jahreswertungList');
       const jahresList = players.map(p => {
-        const getCatWertung = (catKey) => {
+        const getCatQuote = (catKey) => {
           const c = catMap && catMap[catKey] && catMap[catKey][p.name];
           if (!c || c.spiele === 0) return 0;
-          return (c.gewonnen / c.spiele) * c.gewonnen;
+          return c.gewonnen / c.spiele;
         };
 
-        const wRamsch = getCatWertung('Ramsch');
-        const wOffensiv = getCatWertung('Offensiv');
-        const wSolo = getCatWertung('Solo');
-        const wContra = getCatWertung('Contra');
-        const wKoenig = p.koenigWon || 0;
+        const qRamsch = getCatQuote('Ramsch');
+        const qOffensiv = getCatQuote('Offensiv');
+        const qSolo = getCatQuote('Solo');
+        const qContra = getCatQuote('Contra');
+        const qKoenig = p.koenigTotal > 0 ? (p.koenigWon / p.koenigTotal) : 0;
 
-        const score = (wRamsch + wOffensiv + wSolo + wContra + wKoenig) / 5;
+        const score = (qRamsch + qOffensiv + qSolo + qContra + qKoenig) / 5;
 
         return {
           name: p.name,
@@ -547,7 +548,7 @@
             <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
             <div class="flex-1 flex justify-center">
               <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1 rounded-sm shadow">
-                ${p.score.toFixed(2).replace('.', ',')}
+                ${(p.score * 100).toFixed(1).replace('.', ',')} %
               </div>
             </div>
           </div>

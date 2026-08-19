@@ -21,8 +21,16 @@
           <p class="text-neutral-400 text-xs tracking-wide">Schafkopf Stammtisch</p>
         </div>
       </div>
-      <div class="text-right text-xs text-neutral-400 mt-2 md:mt-0 font-light">
-        Jeden dritten Donnerstag,<br>oder wann wir halt Zeit haben :)
+
+      <!-- Jahr Filter (oben rechts) -->
+      <div class="flex items-center space-x-3 mt-2 md:mt-0">
+        <label for="yearFilter" class="text-neutral-400 text-xs">Jahr</label>
+        <select id="yearFilter" class="bg-neutral-900 border border-neutral-800 text-xs rounded px-2 py-1 text-neutral-200">
+          <!-- Optionen werden dynamisch befüllt -->
+        </select>
+        <div class="text-right text-xs text-neutral-400 font-light">
+          Jeden dritten Donnerstag,<br>oder wann wir halt Zeit haben :)
+        </div>
       </div>
     </header>
 
@@ -136,11 +144,73 @@
   </div>
 
   <script>
-    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQzVZyjDrE4Ae2r5vTXCbk3E3HiAwMy_iWiMbYWCTRxQdMbZxGVlEcq23vz_YFl7igcyBw3UN5DQ2Vx/pub?gid=28030364&single=true&output=csv";
+    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQzVZyjDrE4Ae2r5vTXCbk3E3HiAwMy_iWiMbYWCTRxQdMbZxGVlEcq23vz_YFl7igcyBw3UN5DQ2Vx/pub?gid=28030364&single=true&outp[...];
+
+    let ALL_ROWS = [];
 
     function cleanNumber(val) {
       if (!val) return 0;
       return parseFloat(String(val).replace(',', '.')) || 0;
+    }
+
+    function getYearFromDateStr(s) {
+      if (!s) return null;
+      s = String(s).trim();
+      // Try to find a 4-digit year first
+      const yMatch = s.match(/(19|20)\d{2}/);
+      if (yMatch) return parseInt(yMatch[0], 10);
+      // German format dd.mm.yyyy or dd.mm.yy
+      const dMatch = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+      if (dMatch) {
+        let y = dMatch[3];
+        if (y.length === 2) y = '20' + y;
+        return parseInt(y, 10);
+      }
+      // ISO yyyy-mm-dd
+      const isoMatch = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return parseInt(isoMatch[1], 10);
+      return null;
+    }
+
+    function populateYearFilter(rows) {
+      const sel = document.getElementById('yearFilter');
+      if (!sel) return;
+      const yearsSet = new Set();
+      rows.forEach(r => {
+        const y = getYearFromDateStr(r['Datum']);
+        if (y) yearsSet.add(y);
+      });
+      const years = Array.from(yearsSet).sort((a, b) => b - a);
+      const currentYear = new Date().getFullYear();
+      if (!years.includes(currentYear)) years.unshift(currentYear);
+
+      // Build options
+      sel.innerHTML = '';
+      years.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.text = String(y);
+        sel.appendChild(opt);
+      });
+
+      // Default to current year
+      sel.value = String(currentYear);
+
+      // Trigger re-processing when changed
+      sel.addEventListener('change', applyFilterAndProcess);
+    }
+
+    function applyFilterAndProcess() {
+      const sel = document.getElementById('yearFilter');
+      const year = sel ? parseInt(sel.value, 10) : null;
+      let filtered = ALL_ROWS;
+      if (year) {
+        filtered = ALL_ROWS.filter(r => {
+          const y = getYearFromDateStr(r['Datum']);
+          return y === year;
+        });
+      }
+      processData(filtered);
     }
 
     function processData(rows) {
@@ -201,7 +271,11 @@
 
     function renderChart(labels, spiele, gewonnen, quote) {
       const ctx = document.getElementById('spieltageChart').getContext('2d');
-      new Chart(ctx, {
+      // Destroy previous chart instance if exists to avoid duplicates
+      if (window.__spieltageChart) {
+        try { window.__spieltageChart.destroy(); } catch (e) {}
+      }
+      window.__spieltageChart = new Chart(ctx, {
         data: {
           labels: labels,
           datasets: [
@@ -328,7 +402,9 @@
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        processData(results.data);
+        ALL_ROWS = results.data;
+        populateYearFilter(ALL_ROWS);
+        applyFilterAndProcess();
       }
     });
   </script>

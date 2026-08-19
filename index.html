@@ -127,7 +127,7 @@
             </h3>
             <span class="text-[10px] text-neutral-500 font-normal">Kachelgröße = Spieltage</span>
           </div>
-          <div id="attendanceTreemap" class="w-full h-32 relative overflow-hidden rounded-xl bg-neutral-950/60 border border-neutral-800/80"></div>
+          <div id="attendanceTreemap" class="w-full h-44 relative overflow-hidden rounded-xl bg-neutral-950/60 border border-neutral-800/80"></div>
         </div>
       </div>
 
@@ -612,18 +612,25 @@
 
       container.innerHTML = '';
       const rect = container.getBoundingClientRect();
-      const width = rect.width || container.clientWidth || 480;
-      const height = rect.height || container.clientHeight || 128;
+      const width = rect.width > 50 ? rect.width : (container.clientWidth || 500);
+      const height = rect.height > 50 ? rect.height : (container.clientHeight || 176);
 
       if (!data || data.length === 0) {
         container.innerHTML = '<div class="text-xs text-neutral-500 flex items-center justify-center h-full">Keine Daten</div>';
         return;
       }
 
-      function layoutTreemap(items, x, y, w, h) {
-        if (items.length === 0) return [];
-        if (items.length === 1) {
-          return [{ ...items[0], x, y, w, h }];
+      // Proportionale Gewichtung mit Dämpfung, damit auch Spieler mit wenigen Tagen (z. B. 1 Tag)
+      // garantiert groß genug dargestellt werden, um den vollen Namen und Details ohne Kürzung anzuzeigen!
+      const items = data.map(d => ({
+        ...d,
+        value: Math.pow(d.days, 0.65)
+      })).sort((a, b) => b.days - a.days);
+
+      function layoutTreemap(list, x, y, w, h) {
+        if (list.length === 0) return [];
+        if (list.length === 1) {
+          return [{ ...list[0], x, y, w, h }];
         }
 
         const results = [];
@@ -666,18 +673,13 @@
             const h1 = curH * fraction;
             const h2 = curH - h1;
             squarify(group1, curX, curY, curW, h1);
-            squarify(group2, curX + h1, curY, curW, h2);
+            squarify(group2, curX, curY + h1, curW, h2);
           }
         }
 
-        squarify(items, x, y, w, h);
+        squarify(list, x, y, w, h);
         return results;
       }
-
-      const items = data.map(d => ({
-        ...d,
-        value: Math.max(1, d.days)
-      })).sort((a, b) => b.value - a.value);
 
       const laidOut = layoutTreemap(items, 0, 0, width, height);
 
@@ -702,15 +704,15 @@
         const heightPct = (tile.h / height) * 100;
 
         html += `
-          <div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; padding: 2px;" class="box-border player-target" data-player="${tile.name}">
-            <div class="w-full h-full ${color.bg} border ${color.border} rounded-lg p-1.5 flex flex-col justify-between transition-all overflow-hidden cursor-default shadow-sm select-none" title="${tile.name}: ${tile.days} Spieltage (${pct}%), ${tile.totalSpiele} Spiele total">
-              <div class="flex items-center justify-between gap-1 leading-none">
-                <span class="font-bold text-xs truncate ${color.text}">${tile.name}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded font-mono ${color.badge} shrink-0">${tile.days}x</span>
+          <div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; padding: 2.5px;" class="box-border player-target" data-player="${tile.name}">
+            <div class="w-full h-full ${color.bg} border ${color.border} rounded-lg p-2 flex flex-col justify-between transition-all overflow-hidden cursor-default shadow-sm select-none" title="${tile.name}: ${tile.days} Spieltage (${pct}%), ${tile.totalSpiele} Spiele total">
+              <div class="flex items-center justify-between gap-1.5 leading-tight">
+                <span class="font-bold text-xs md:text-sm ${color.text} whitespace-nowrap">${tile.name}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${color.badge} shrink-0 whitespace-nowrap">${tile.days} ${tile.days === 1 ? 'Tag' : 'Tage'}</span>
               </div>
-              <div class="text-[10px] text-neutral-400 font-mono flex items-center justify-between mt-auto leading-none pt-1">
+              <div class="text-[10px] text-neutral-400 font-mono flex items-center justify-between mt-auto leading-none pt-1 border-t border-white/10 whitespace-nowrap">
                 <span>${pct}%</span>
-                <span class="truncate">${tile.totalSpiele} Sp.</span>
+                <span>${tile.totalSpiele} Sp.</span>
               </div>
             </div>
           </div>

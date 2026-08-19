@@ -405,7 +405,7 @@
       renderCategoryTable('contraTableBody', catMap['Contra']);
 
       // Ranglisten rendern
-      renderRankings(playerTotals);
+      renderRankings(playerTotals, catMap);
     }
 
     function renderChart(labels, spiele, gewonnen, quote) {
@@ -493,7 +493,7 @@
       }).join('');
     }
 
-    function renderRankings(playerTotals) {
+    function renderRankings(playerTotals, catMap) {
       const players = Object.values(playerTotals);
 
       // 1. König (Goldene Trichter-Balken) - Summe aller gewonnenen Könige
@@ -515,13 +515,28 @@
         `;
       }).join('');
 
-      // 2. Jahreswertung (Rote Trichter-Balken)
+      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der Wertungen (Ramsch, Offensiv, Solo, Contra, König)
       const jahresContainer = document.getElementById('jahreswertungList');
-      const jahresList = players.map(p => ({
-        name: p.name,
-        // HIER DEINE FORMEL FÜR DIE JAHRESWERTUNG ANPASSEN:
-        score: p.total > 0 ? (p.gewonnen / p.total) : 0
-      })).sort((a, b) => b.score - a.score);
+      const jahresList = players.map(p => {
+        const getCatWertung = (catKey) => {
+          const c = catMap && catMap[catKey] && catMap[catKey][p.name];
+          if (!c || c.spiele === 0) return 0;
+          return (c.gewonnen / c.spiele) * c.gewonnen;
+        };
+
+        const wRamsch = getCatWertung('Ramsch');
+        const wOffensiv = getCatWertung('Offensiv');
+        const wSolo = getCatWertung('Solo');
+        const wContra = getCatWertung('Contra');
+        const wKoenig = p.koenigWon || 0;
+
+        const score = (wRamsch + wOffensiv + wSolo + wContra + wKoenig) / 5;
+
+        return {
+          name: p.name,
+          score: score
+        };
+      }).sort((a, b) => b.score - a.score);
 
       const maxScore = Math.max(...jahresList.map(j => j.score), 0.01);
 
@@ -532,7 +547,7 @@
             <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
             <div class="flex-1 flex justify-center">
               <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1 rounded-sm shadow">
-                ${p.score.toFixed(5).replace('.', ',')}
+                ${p.score.toFixed(2).replace('.', ',')}
               </div>
             </div>
           </div>

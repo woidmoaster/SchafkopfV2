@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,70 +8,154 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    /* Subtle custom scrollbar & animations */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #404040; }
+    
+    .player-highlight {
+      outline: 2px solid #f59e0b !important;
+      outline-offset: 1px;
+      background-color: rgba(245, 158, 11, 0.12) !important;
+      transition: all 0.15s ease-in-out;
+    }
+  </style>
 </head>
-<body class="bg-black text-white font-sans p-4 md:p-8 min-h-screen">
+<body class="bg-neutral-950 text-neutral-100 font-sans min-h-screen bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.12),rgba(255,255,255,0))] p-3 md:p-6 lg:p-8">
   <div class="max-w-6xl mx-auto space-y-6">
 
     <!-- Header -->
-    <header class="flex flex-col md:flex-row items-center justify-between border-b border-neutral-800 pb-4">
-      <div class="flex items-center space-x-3">
-        <div class="border border-neutral-700 rounded px-2 py-1 bg-neutral-900 text-xl font-mono">🂡</div>
+    <header class="flex flex-col md:flex-row items-center justify-between bg-neutral-900/60 backdrop-blur-md border border-neutral-800/80 rounded-2xl p-4 md:px-6 shadow-xl gap-4">
+      <div class="flex items-center space-x-3.5">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-900/40 border border-amber-500/40 flex items-center justify-center text-2xl shadow-inner shadow-amber-500/10">
+          🃏
+        </div>
         <div>
-          <h1 class="text-3xl font-black tracking-wider">OTTO</h1>
-          <p class="text-neutral-400 text-xs tracking-wide">Schafkopf Stammtisch</p>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl md:text-3xl font-black tracking-wider bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent">OTTO</h1>
+            <span class="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">Stammtisch</span>
+          </div>
+          <p class="text-neutral-400 text-xs tracking-wide">Schafkopf Meisterschaft & Statistik</p>
         </div>
       </div>
 
-      <!-- Jahr Filter (oben rechts) -->
-      <div class="flex items-center space-x-3 mt-2 md:mt-0">
-        <label for="yearFilter" class="text-neutral-400 text-xs">Jahr</label>
-        <select id="yearFilter" class="bg-neutral-900 border border-neutral-800 text-xs rounded px-2 py-1 text-neutral-200">
-          <!-- Optionen werden dynamisch befüllt -->
-        </select>
-        <div class="text-right text-xs text-neutral-400 font-light">
-          Jeden dritten Donnerstag,<br>oder wann wir halt Zeit haben :)
+      <!-- Filter & Slogan -->
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 bg-neutral-950/80 border border-neutral-800 rounded-xl px-3 py-1.5 shadow-inner">
+          <span class="text-neutral-400 text-xs font-medium">📅 Jahr:</span>
+          <select id="yearFilter" class="bg-transparent text-xs font-bold text-amber-400 focus:outline-none cursor-pointer">
+            <!-- Optionen werden dynamisch befüllt -->
+          </select>
+        </div>
+        <div class="hidden sm:block text-right text-[11px] text-neutral-400 font-light border-l border-neutral-800 pl-4">
+          Jeden 3. Donnerstag,<br><span class="text-neutral-500">oder wann Zeit ist :)</span>
         </div>
       </div>
     </header>
 
-    <!-- Top Grid: Chart & Ranglisten -->
+    <!-- KPI Metric Cards (Die wichtigsten Zahlen) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <!-- KPI 1: Spieltage -->
+      <div class="bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-neutral-700/80 transition-all">
+        <div class="w-10 h-10 rounded-lg bg-blue-950/60 border border-blue-800/50 flex items-center justify-center text-blue-400 text-lg shrink-0">
+          📅
+        </div>
+        <div class="overflow-hidden">
+          <div class="text-[11px] text-neutral-400 uppercase font-medium tracking-wider">Spieltage</div>
+          <div id="kpiSpieltage" class="text-lg md:text-xl font-extrabold text-white truncate">-</div>
+        </div>
+      </div>
+
+      <!-- KPI 2: Spiele Total -->
+      <div class="bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-neutral-700/80 transition-all">
+        <div class="w-10 h-10 rounded-lg bg-emerald-950/60 border border-emerald-800/50 flex items-center justify-center text-emerald-400 text-lg shrink-0">
+          🎮
+        </div>
+        <div class="overflow-hidden">
+          <div class="text-[11px] text-neutral-400 uppercase font-medium tracking-wider">Spiele gesamt</div>
+          <div id="kpiSpieleTotal" class="text-lg md:text-xl font-extrabold text-white truncate">-</div>
+        </div>
+      </div>
+
+      <!-- KPI 3: König Spitzenreiter -->
+      <div class="bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-amber-700/50 transition-all">
+        <div class="w-10 h-10 rounded-lg bg-amber-950/60 border border-amber-700/60 flex items-center justify-center text-amber-400 text-lg shrink-0">
+          👑
+        </div>
+        <div class="overflow-hidden">
+          <div class="text-[11px] text-neutral-400 uppercase font-medium tracking-wider">König-Leader</div>
+          <div id="kpiKoenigLeader" class="text-lg md:text-xl font-extrabold text-amber-400 truncate">-</div>
+        </div>
+      </div>
+
+      <!-- KPI 4: Jahreswertungs-Leader -->
+      <div class="bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 rounded-xl p-3.5 flex items-center gap-3 shadow-md hover:border-rose-700/50 transition-all">
+        <div class="w-10 h-10 rounded-lg bg-rose-950/60 border border-rose-800/50 flex items-center justify-center text-rose-400 text-lg shrink-0">
+          🏆
+        </div>
+        <div class="overflow-hidden">
+          <div class="text-[11px] text-neutral-400 uppercase font-medium tracking-wider">Jahresbester</div>
+          <div id="kpiJahresLeader" class="text-lg md:text-xl font-extrabold text-rose-400 truncate">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Grid: Chart & Treemap (Links) | König & Jahreswertung (Rechts) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      <!-- Spieltage Chart & Treemap -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800 space-y-4">
+      <!-- Linke Spalte: Spieltage Chart & Treemap -->
+      <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl space-y-4">
         <div>
-          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
-            SPIELTAGE <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">1</sup>
-          </h2>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-1.5">
+              <span>📈</span> SPIELTAGE-VERLAUF <sup class="text-neutral-500 font-normal text-[10px]">1</sup>
+            </h2>
+            <span class="text-[10px] text-neutral-400 font-medium bg-neutral-950 px-2 py-0.5 rounded border border-neutral-800">Spiele & Quote</span>
+          </div>
           <div class="h-60 relative">
             <canvas id="spieltageChart"></canvas>
           </div>
         </div>
 
         <!-- Treemap: Wer wie oft mitgespielt hat -->
-        <div class="pt-3 border-t border-neutral-800">
-          <h3 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-300 mb-2">
-            TEILNAHME <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">2</sup>
-          </h3>
-          <div id="attendanceTreemap" class="w-full h-32 relative overflow-hidden rounded bg-neutral-900/50 border border-neutral-800/80"></div>
+        <div class="pt-3.5 border-t border-neutral-800/80">
+          <div class="flex items-center justify-between mb-2.5">
+            <h3 class="font-bold tracking-wider text-xs uppercase text-neutral-300 flex items-center gap-1.5">
+              <span>👥</span> TEILNAHME & ANWESENHEIT <sup class="text-neutral-500 font-normal text-[10px]">2</sup>
+            </h3>
+            <span class="text-[10px] text-neutral-500 font-normal">Kachelgröße = Spieltage</span>
+          </div>
+          <div id="attendanceTreemap" class="w-full h-32 relative overflow-hidden rounded-xl bg-neutral-950/60 border border-neutral-800/80"></div>
         </div>
       </div>
 
-      <!-- Rechts: König & Jahreswertung -->
+      <!-- Rechte Spalte: König & Jahreswertung -->
       <div class="space-y-6">
+        
         <!-- König -->
-        <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">KÖNIG</h2>
-          <div id="koenigList" class="space-y-1.5"></div>
+        <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+          <div class="flex items-center justify-between mb-3.5">
+            <h2 class="font-bold tracking-wider text-xs uppercase text-amber-400 flex items-center gap-1.5">
+              <span>👑</span> KÖNIG-RANGLISTE
+            </h2>
+            <span class="text-[10px] text-neutral-400 bg-amber-950/40 border border-amber-800/40 text-amber-300 px-2 py-0.5 rounded">Gewonnene Könige</span>
+          </div>
+          <div id="koenigList" class="space-y-2"></div>
         </div>
 
         <!-- Jahreswertung -->
-        <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
-            JAHRESWERTUNG <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">3</sup>
-          </h2>
-          <div id="jahreswertungList" class="space-y-1.5"></div>
+        <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+          <div class="flex items-center justify-between mb-3.5">
+            <h2 class="font-bold tracking-wider text-xs uppercase text-rose-400 flex items-center gap-1.5">
+              <span>🏆</span> JAHRESWERTUNG <sup class="text-neutral-500 font-normal text-[10px]">3</sup>
+            </h2>
+            <span class="text-[10px] text-neutral-400 bg-rose-950/40 border border-rose-800/40 text-rose-300 px-2 py-0.5 rounded">Ø 5 Quoten</span>
+          </div>
+          <div id="jahreswertungList" class="space-y-2"></div>
         </div>
+
       </div>
 
     </div>
@@ -80,17 +164,22 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
       <!-- RAMSCH -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">RAMSCH</h2>
+      <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-neutral-800/80 pb-2">
+          <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
+            <span>🐗</span> RAMSCH
+          </h2>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Meiste Siege</span>
+        </div>
         <table class="w-full text-xs text-left">
           <thead>
             <tr class="text-neutral-400 border-b border-neutral-800">
-              <th class="py-1">Name</th>
-              <th class="py-1 text-right">Sp.</th>
-              <th class="py-1 text-right">+</th>
-              <th class="py-1 text-right">Quote</th>
-              <th class="py-1 text-right">Wertung</th>
-              <th class="py-1 text-right">König</th>
+              <th class="py-1.5 font-medium">Name</th>
+              <th class="py-1.5 text-right font-medium">Sp.</th>
+              <th class="py-1.5 text-right font-medium text-emerald-400">+</th>
+              <th class="py-1.5 text-right font-medium">Quote</th>
+              <th class="py-1.5 text-right font-medium">Wertung</th>
+              <th class="py-1.5 text-right font-medium text-amber-400">König</th>
             </tr>
           </thead>
           <tbody id="ramschTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
@@ -98,17 +187,22 @@
       </div>
 
       <!-- SOLO -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">SOLO</h2>
+      <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-neutral-800/80 pb-2">
+          <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
+            <span>🗡️</span> SOLO
+          </h2>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Siege</span>
+        </div>
         <table class="w-full text-xs text-left">
           <thead>
             <tr class="text-neutral-400 border-b border-neutral-800">
-              <th class="py-1">Name</th>
-              <th class="py-1 text-right">Sp.</th>
-              <th class="py-1 text-right">+</th>
-              <th class="py-1 text-right">Quote</th>
-              <th class="py-1 text-right">Wertung</th>
-              <th class="py-1 text-right">König</th>
+              <th class="py-1.5 font-medium">Name</th>
+              <th class="py-1.5 text-right font-medium">Sp.</th>
+              <th class="py-1.5 text-right font-medium text-emerald-400">+</th>
+              <th class="py-1.5 text-right font-medium">Quote</th>
+              <th class="py-1.5 text-right font-medium">Wertung</th>
+              <th class="py-1.5 text-right font-medium text-amber-400">König</th>
             </tr>
           </thead>
           <tbody id="soloTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
@@ -116,17 +210,22 @@
       </div>
 
       <!-- OFFENSIV -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">OFFENSIV</h2>
+      <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-neutral-800/80 pb-2">
+          <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
+            <span>⚡</span> OFFENSIV
+          </h2>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 10 & Siege</span>
+        </div>
         <table class="w-full text-xs text-left">
           <thead>
             <tr class="text-neutral-400 border-b border-neutral-800">
-              <th class="py-1">Name</th>
-              <th class="py-1 text-right">Sp.</th>
-              <th class="py-1 text-right">+</th>
-              <th class="py-1 text-right">Quote</th>
-              <th class="py-1 text-right">Wertung</th>
-              <th class="py-1 text-right">König</th>
+              <th class="py-1.5 font-medium">Name</th>
+              <th class="py-1.5 text-right font-medium">Sp.</th>
+              <th class="py-1.5 text-right font-medium text-emerald-400">+</th>
+              <th class="py-1.5 text-right font-medium">Quote</th>
+              <th class="py-1.5 text-right font-medium">Wertung</th>
+              <th class="py-1.5 text-right font-medium text-amber-400">König</th>
             </tr>
           </thead>
           <tbody id="offensivTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
@@ -134,34 +233,45 @@
       </div>
 
       <!-- CONTRA -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">CONTRA</h2>
+      <div class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-neutral-800/80 pb-2">
+          <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
+            <span>🛡️</span> CONTRA
+          </h2>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Siege</span>
+        </div>
         <table class="w-full text-xs text-left">
           <thead>
             <tr class="text-neutral-400 border-b border-neutral-800">
-              <th class="py-1">Name</th>
-              <th class="py-1 text-right">Sp.</th>
-              <th class="py-1 text-right">+</th>
-              <th class="py-1 text-right">Quote</th>
-              <th class="py-1 text-right">Wertung</th>
-              <th class="py-1 text-right">König</th>
+              <th class="py-1.5 font-medium">Name</th>
+              <th class="py-1.5 text-right font-medium">Sp.</th>
+              <th class="py-1.5 text-right font-medium text-emerald-400">+</th>
+              <th class="py-1.5 text-right font-medium">Quote</th>
+              <th class="py-1.5 text-right font-medium">Wertung</th>
+              <th class="py-1.5 text-right font-medium text-amber-400">König</th>
             </tr>
           </thead>
           <tbody id="contraTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
         </table>
       </div>
 
-      <!-- KÖNIG -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">KÖNIG</h2>
+      <!-- KÖNIG (Featured Master Card über 2 Spalten) -->
+      <div class="md:col-span-2 bg-gradient-to-b from-amber-950/20 via-neutral-900/70 to-neutral-950/90 backdrop-blur-md p-5 rounded-2xl border border-amber-500/30 shadow-2xl shadow-amber-950/20">
+        <div class="flex items-center justify-between mb-3 border-b border-amber-500/20 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-base">👑</span>
+            <h2 class="font-bold tracking-wider text-xs uppercase text-amber-400">KÖNIGSRUNDEN (GESAMTÜBERSICHT)</h2>
+          </div>
+          <span class="text-[10px] text-amber-400/80 bg-amber-950/60 border border-amber-600/40 px-2 py-0.5 rounded font-mono">Direkte König-Spiele</span>
+        </div>
         <table class="w-full text-xs text-left">
           <thead>
             <tr class="text-neutral-400 border-b border-neutral-800">
-              <th class="py-1">Name</th>
-              <th class="py-1 text-right">Sp.</th>
-              <th class="py-1 text-right">+</th>
-              <th class="py-1 text-right">Quote</th>
-              <th class="py-1 text-right">Wertung</th>
+              <th class="py-1.5 font-medium">Name</th>
+              <th class="py-1.5 text-right font-medium">Spiele Total</th>
+              <th class="py-1.5 text-right font-medium text-amber-400">Gewonnene Könige (+)</th>
+              <th class="py-1.5 text-right font-medium">Erfolgsquote</th>
+              <th class="py-1.5 text-right font-medium">Wertung</th>
             </tr>
           </thead>
           <tbody id="koenigTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
@@ -171,18 +281,18 @@
     </div>
 
     <!-- Footer: Anmerkungen / Fußnoten -->
-    <footer class="pt-4 pb-8 border-t border-neutral-900 text-xs text-neutral-500 space-y-1.5 font-sans">
-      <div class="flex items-start gap-2">
-        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">¹</span>
-        <span><strong>Spieltage:</strong> Auswertung ohne Ramsch.</span>
+    <footer class="pt-4 pb-8 border-t border-neutral-900 text-xs text-neutral-500 space-y-2 font-sans">
+      <div class="flex items-start gap-2.5">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">¹</span>
+        <span><strong>Spieltage-Verlauf:</strong> Auswertung der Runden ohne Ramsch.</span>
       </div>
-      <div class="flex items-start gap-2">
-        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">²</span>
-        <span><strong>Teilnahme:</strong> Anzahl der besuchten Spieltage pro Spieler im ausgewählten Zeitraum.</span>
+      <div class="flex items-start gap-2.5">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">²</span>
+        <span><strong>Teilnahme-Treemap:</strong> Anzahl der besuchten Spieltage pro Spieler im ausgewählten Zeitraum.</span>
       </div>
-      <div class="flex items-start gap-2">
-        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">³</span>
-        <span><strong>Jahreswertung:</strong> Mittelwert der 5 Quoten (Ramsch, Offensiv, Solo, Contra, König). Für die Hauptwertung ist die Teilnahme an mindestens 50% der Spieltage erforderlich (Spieler darunter sind abgetrennt).</span>
+      <div class="flex items-start gap-2.5">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">³</span>
+        <span><strong>Jahreswertung:</strong> Arithmetischer Mittelwert der 5 Quoten (Ramsch, Offensiv, Solo, Contra, König). Für die Hauptwertung ist die Teilnahme an mindestens 50% der Spieltage erforderlich (Spieler darunter sind dezent abgetrennt).</span>
       </div>
     </footer>
 
@@ -201,17 +311,14 @@
     function getYearFromDateStr(s) {
       if (!s) return null;
       s = String(s).trim();
-      // Try to find a 4-digit year first
       const yMatch = s.match(/(19|20)\d{2}/);
       if (yMatch) return parseInt(yMatch[0], 10);
-      // German format dd.mm.yyyy or dd.mm.yy
       const dMatch = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
       if (dMatch) {
         let y = dMatch[3];
         if (y.length === 2) y = '20' + y;
         return parseInt(y, 10);
       }
-      // ISO yyyy-mm-dd
       const isoMatch = s.match(/(\d{4})-(\d{2})-(\d{2})/);
       if (isoMatch) return parseInt(isoMatch[1], 10);
       return null;
@@ -228,7 +335,6 @@
           yearsSet.add(y);
           return;
         }
-        // If Datum isn't parseable, scan other fields for 4-digit years
         Object.values(r).forEach(v => {
           if (!v) return;
           const matches = String(v).match(/(19|20)\d{2}/g);
@@ -240,13 +346,11 @@
       const currentYear = new Date().getFullYear();
 
       if (years.length === 0) {
-        // Fallback: last 6 years including current
         for (let i = 0; i < 6; i++) years.push(currentYear - i);
       } else if (!years.includes(currentYear)) {
         years.unshift(currentYear);
       }
 
-      // Build options: add "Alle Jahre" option first
       sel.innerHTML = '';
       const allOpt = document.createElement('option');
       allOpt.value = '';
@@ -260,11 +364,9 @@
         sel.appendChild(opt);
       });
 
-      // Default to current year if available, otherwise "Alle Jahre"
       if (years.includes(currentYear)) sel.value = String(currentYear);
       else sel.value = '';
 
-      // Trigger re-processing when changed
       sel.addEventListener('change', applyFilterAndProcess);
     }
 
@@ -292,10 +394,7 @@
     }
 
     function processData(rows) {
-      // 1. Gruppierung nach Datum (ohne Ramsch) für das Chart
       const datesMap = {};
-      
-      // 2. Gruppierung nach Kategorie & Spieler
       const categories = ['Ramsch', 'Solo', 'Offensiv', 'Contra'];
       const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {}, König: {} };
       const playerTotals = {};
@@ -303,6 +402,7 @@
       const allSpieltageSet = new Set();
       const playerSpieltage = {};
       let hasExplicitKoenigRows = false;
+      let totalGamesCount = 0;
 
       rows.forEach(r => {
         const datum = r['Datum'] ? r['Datum'].trim() : null;
@@ -318,19 +418,19 @@
 
         if (!name) return;
 
+        totalGamesCount += total;
+
         if (datum && total > 0) {
           if (!playerSpieltage[name]) playerSpieltage[name] = new Set();
           playerSpieltage[name].add(datum);
         }
 
-        // Gesamtübersicht pro Spieler initialisieren
         if (!playerTotals[name]) {
           playerTotals[name] = { name, total: 0, gewonnen: 0, koenigWon: 0, koenigTotal: 0 };
         }
 
         const isKoenigRow = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
 
-        // Für das König-Balkendiagramm, Quote & König-Tabelle: Zeilen mit Spiel = 'König'
         if (isKoenigRow) {
           hasExplicitKoenigRows = true;
           playerTotals[name].koenigWon += gewonnen;
@@ -345,7 +445,6 @@
           return;
         }
 
-        // Für Spieltage-König-Berechnung gruppieren
         if (datum) {
           if (!spieldaten[datum]) spieldaten[datum] = [];
           spieldaten[datum].push({ datum, name, spiel, total, gewonnen, verloren });
@@ -353,14 +452,12 @@
 
         if (total === 0) return;
 
-        // Spieltage Chart Logik (ohne Ramsch)
         if (datum && spiel !== 'Ramsch') {
           if (!datesMap[datum]) datesMap[datum] = { datum, spiele: 0, gewonnen: 0 };
           datesMap[datum].spiele += total;
           datesMap[datum].gewonnen += gewonnen;
         }
 
-        // Standard-Kategorien (Ramsch, Solo, Offensiv, Contra)
         let matchedCat = null;
         if (spiel) {
           const sLower = spiel.toLowerCase();
@@ -379,12 +476,11 @@
           catMap[matchedCat][name].verloren += verloren;
         }
 
-        // Reguläre Spiele für Jahreswertung
         playerTotals[name].total += total;
         playerTotals[name].gewonnen += gewonnen;
       });
 
-      // 3. Pro Spieltag König nach Regeln ermitteln (für die Spalten der 4 Tabellen)
+      // König pro Spieltag ermitteln
       Object.keys(spieldaten).forEach(datum => {
         const dayRows = spieldaten[datum];
 
@@ -398,7 +494,6 @@
           if (catRows.length === 0) return;
 
           if (minWins === null) {
-            // Ramsch: der mit den meisten gewonnenen Spielen
             const maxWon = Math.max(...catRows.map(r => r.gewonnen));
             if (maxWon > 0) {
               const winners = catRows.filter(r => r.gewonnen === maxWon && r.name);
@@ -410,17 +505,20 @@
               });
             }
           } else {
-            // Offensiv (min 10), Solo (min 3), Contra (min 3): minWins erforderlich, dann beste Differenz
             const qualified = catRows.filter(r => r.gewonnen >= minWins);
             if (qualified.length > 0) {
-              const withDiff = qualified.map(r => ({
+              const maxWon = Math.max(...qualified.map(r => r.gewonnen));
+              const topWinners = qualified.filter(r => r.gewonnen === maxWon);
+
+              const withDiff = topWinners.map(r => ({
                 name: r.name,
                 diff: r.gewonnen - r.verloren
               }));
               const maxDiff = Math.max(...withDiff.map(w => w.diff));
-              const winners = withDiff.filter(w => w.diff === maxDiff && w.name);
-              const points = 1 / winners.length;
-              winners.forEach(w => {
+              const finalWinners = withDiff.filter(w => w.diff === maxDiff && w.name);
+              const points = 1 / finalWinners.length;
+
+              finalWinners.forEach(w => {
                 if (catMap[catKey] && catMap[catKey][w.name]) {
                   catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + points;
                 }
@@ -429,17 +527,12 @@
           }
         }
 
-        // Ramsch: Meiste gewonnene
         evalCategoryKoenig('Ramsch', null);
-        // Offensiv: mind. 10 gewonnen, beste Differenz
         evalCategoryKoenig('Offensiv', 10);
-        // Solo: mind. 3 gewonnen, beste Differenz
         evalCategoryKoenig('Solo', 3);
-        // Contra: mind. 3 gewonnen, beste Differenz
         evalCategoryKoenig('Contra', 3);
       });
 
-      // Falls keine expliziten Spiel=König Zeilen existieren: Fallback auf Summe der Kategorie-Könige
       if (!hasExplicitKoenigRows) {
         Object.keys(playerTotals).forEach(name => {
           let sum = 0;
@@ -461,6 +554,18 @@
         });
       }
 
+      // KPIs befüllen
+      document.getElementById('kpiSpieltage').innerText = allSpieltageSet.size;
+      document.getElementById('kpiSpieleTotal').innerText = totalGamesCount.toLocaleString('de-DE');
+
+      const allPlayersArr = Object.values(playerTotals);
+      const topKoenigPlayer = [...allPlayersArr].sort((a, b) => b.koenigWon - a.koenigWon)[0];
+      if (topKoenigPlayer && topKoenigPlayer.koenigWon > 0) {
+        document.getElementById('kpiKoenigLeader').innerText = `${topKoenigPlayer.name} (${formatKoenig(topKoenigPlayer.koenigWon)})`;
+      } else {
+        document.getElementById('kpiKoenigLeader').innerText = '-';
+      }
+
       // Chart Daten aufbereiten
       const chartLabels = Object.keys(datesMap);
       const chartSpiele = chartLabels.map(d => datesMap[d].spiele);
@@ -469,7 +574,7 @@
 
       renderChart(chartLabels, chartSpiele, chartGewonnen, chartQuote);
 
-      // Treemap rendern (wer wie oft mitgespielt hat)
+      // Treemap rendern
       const treemapData = Object.keys(playerTotals).map(name => ({
         name: name,
         days: playerSpieltage[name] ? playerSpieltage[name].size : 0,
@@ -487,6 +592,9 @@
 
       // Ranglisten rendern
       renderRankings(playerTotals, catMap, allSpieltageSet.size, playerSpieltage);
+
+      // Cross-Highlighting initialisieren
+      initCrossHighlighting();
     }
 
     let CURRENT_TREEMAP_DATA = null;
@@ -560,7 +668,7 @@
             const h1 = curH * fraction;
             const h2 = curH - h1;
             squarify(group1, curX, curY, curW, h1);
-            squarify(group2, curX, curY + h1, curW, h2);
+            squarify(group2, curX + h1, curY, curW, h2);
           }
         }
 
@@ -596,11 +704,11 @@
         const heightPct = (tile.h / height) * 100;
 
         html += `
-          <div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; padding: 2px;" class="box-border">
-            <div class="w-full h-full ${color.bg} border ${color.border} rounded p-1.5 flex flex-col justify-between transition-all overflow-hidden cursor-default shadow-sm select-none" title="${tile.name}: ${tile.days} Spieltage (${pct}%), ${tile.totalSpiele} Spiele total">
+          <div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; padding: 2px;" class="box-border player-target" data-player="${tile.name}">
+            <div class="w-full h-full ${color.bg} border ${color.border} rounded-lg p-1.5 flex flex-col justify-between transition-all overflow-hidden cursor-default shadow-sm select-none" title="${tile.name}: ${tile.days} Spieltage (${pct}%), ${tile.totalSpiele} Spiele total">
               <div class="flex items-center justify-between gap-1 leading-none">
                 <span class="font-bold text-xs truncate ${color.text}">${tile.name}</span>
-                <span class="text-[10px] px-1 py-0.5 rounded font-mono ${color.badge} shrink-0">${tile.days}x</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded font-mono ${color.badge} shrink-0">${tile.days}x</span>
               </div>
               <div class="text-[10px] text-neutral-400 font-mono flex items-center justify-between mt-auto leading-none pt-1">
                 <span>${pct}%</span>
@@ -620,10 +728,15 @@
 
     function renderChart(labels, spiele, gewonnen, quote) {
       const ctx = document.getElementById('spieltageChart').getContext('2d');
-      // Destroy previous chart instance if exists to avoid duplicates
       if (window.__spieltageChart) {
         try { window.__spieltageChart.destroy(); } catch (e) {}
       }
+
+      // Smooth gradient fill for Quote line
+      const quoteGradient = ctx.createLinearGradient(0, 0, 0, 240);
+      quoteGradient.addColorStop(0, 'rgba(249, 115, 22, 0.35)');
+      quoteGradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
       window.__spieltageChart = new Chart(ctx, {
         data: {
           labels: labels,
@@ -633,16 +746,23 @@
               label: 'Quote',
               data: quote,
               borderColor: '#f97316',
-              borderWidth: 2,
+              backgroundColor: quoteGradient,
+              fill: true,
+              borderWidth: 2.5,
               pointBackgroundColor: '#f97316',
+              pointBorderColor: '#ffffff',
+              pointRadius: 3.5,
+              pointHoverRadius: 5.5,
               yAxisID: 'yQuote',
-              tension: 0.3
+              tension: 0.35
             },
             {
               type: 'bar',
               label: 'Spiele',
               data: spiele,
-              backgroundColor: '#1e40af',
+              backgroundColor: '#1e3a8a',
+              hoverBackgroundColor: '#2563eb',
+              borderRadius: 4,
               yAxisID: 'yCount'
             },
             {
@@ -650,6 +770,8 @@
               label: 'Gewonnen',
               data: gewonnen,
               backgroundColor: '#38bdf8',
+              hoverBackgroundColor: '#0ea5e9',
+              borderRadius: 4,
               yAxisID: 'yCount'
             }
           ]
@@ -657,13 +779,22 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
           scales: {
-            yCount: { position: 'left', beginAtZero: true, grid: { color: '#262626' }, ticks: { color: '#737373' } },
-            yQuote: { position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { callback: v => v + ' %', color: '#f97316' } },
-            x: { ticks: { color: '#a3a3a3', maxRotation: 45 } }
+            yCount: { position: 'left', beginAtZero: true, grid: { color: '#1f1f1f' }, ticks: { color: '#737373', font: { size: 10 } } },
+            yQuote: { position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { callback: v => v + ' %', color: '#f97316', font: { size: 10 } } },
+            x: { grid: { color: '#171717' }, ticks: { color: '#a3a3a3', maxRotation: 45, font: { size: 10 } } }
           },
           plugins: {
-            legend: { labels: { color: '#a3a3a3', boxWidth: 10, font: { size: 10 } } }
+            legend: { labels: { color: '#a3a3a3', boxWidth: 12, font: { size: 10 } } },
+            tooltip: {
+              backgroundColor: '#0a0a0a',
+              borderColor: '#333333',
+              borderWidth: 1,
+              padding: 8,
+              titleFont: { size: 11 },
+              bodyFont: { size: 11 }
+            }
           }
         }
       });
@@ -680,24 +811,21 @@
         return { ...p, quoteVal: quote, quoteStr: Math.round(quote * 100) + ' %', wertung, koenig };
       });
 
-      // Nach Quote absteigend sortieren
       list.sort((a, b) => b.quoteVal - a.quoteVal);
-
-      // Höchste König-Anzahl in dieser Kategorie ermitteln
       const maxKoenig = Math.max(0, ...list.map(p => p.koenig));
 
       tbody.innerHTML = list.map((row, idx) => {
         const hasCrown = showKoenigColumn ? (maxKoenig > 0 && row.koenig === maxKoenig) : (idx === 0);
         return `
-        <tr class="hover:bg-neutral-900 border-b border-neutral-900/50">
-          <td class="py-1 font-sans ${hasCrown ? 'text-amber-400 font-bold' : 'text-neutral-200'}">
+        <tr class="hover:bg-neutral-800/60 border-b border-neutral-900/60 transition-colors player-target" data-player="${row.name}">
+          <td class="py-1.5 font-sans ${hasCrown ? 'text-amber-400 font-bold' : 'text-neutral-200'}">
             ${hasCrown ? '👑 ' : ''}${row.name}
           </td>
-          <td class="py-1 text-right text-neutral-400">${formatKoenig(row.spiele)}</td>
-          <td class="py-1 text-right text-neutral-300">${formatKoenig(row.gewonnen)}</td>
-          <td class="py-1 text-right text-neutral-200 font-bold">${row.quoteStr}</td>
-          <td class="py-1 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
-          ${showKoenigColumn ? `<td class="py-1 text-right text-amber-500 font-bold">${formatKoenig(row.koenig)}</td>` : ''}
+          <td class="py-1.5 text-right text-neutral-400">${formatKoenig(row.spiele)}</td>
+          <td class="py-1.5 text-right text-emerald-400 font-semibold">${formatKoenig(row.gewonnen)}</td>
+          <td class="py-1.5 text-right text-neutral-100 font-bold">${row.quoteStr}</td>
+          <td class="py-1.5 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
+          ${showKoenigColumn ? `<td class="py-1.5 text-right text-amber-400 font-bold">${formatKoenig(row.koenig)}</td>` : ''}
         </tr>
       `;
       }).join('');
@@ -706,18 +834,29 @@
     function renderRankings(playerTotals, catMap, totalSpieltage, playerSpieltage) {
       const players = Object.values(playerTotals);
 
-      // 1. König (Goldene Trichter-Balken) - Summe aller gewonnenen Könige
+      // Rank Medal helper
+      const getMedalBadge = (idx) => {
+        if (idx === 0) return '<span class="text-amber-400 font-bold mr-1">🥇</span>';
+        if (idx === 1) return '<span class="text-neutral-300 font-bold mr-1">🥈</span>';
+        if (idx === 2) return '<span class="text-amber-600 font-bold mr-1">🥉</span>';
+        return `<span class="text-neutral-500 font-mono text-[10px] w-4 inline-block text-left">${idx + 1}.</span>`;
+      };
+
+      // 1. König Rangliste
       const koenigContainer = document.getElementById('koenigList');
       const koenigPlayers = [...players].sort((a, b) => b.koenigWon - a.koenigWon);
       const maxKoenig = Math.max(1, ...koenigPlayers.map(p => p.koenigWon));
 
-      koenigContainer.innerHTML = koenigPlayers.map(p => {
-        const widthPct = maxKoenig > 0 ? Math.max(25, (p.koenigWon / maxKoenig) * 100) : 25;
+      koenigContainer.innerHTML = koenigPlayers.map((p, idx) => {
+        const widthPct = maxKoenig > 0 ? Math.max(28, (p.koenigWon / maxKoenig) * 100) : 28;
         return `
-          <div class="flex items-center text-xs">
-            <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
+          <div class="flex items-center text-xs player-target" data-player="${p.name}">
+            <div class="w-24 flex items-center text-neutral-300 font-medium truncate">
+              ${getMedalBadge(idx)}
+              <span class="truncate">${p.name}</span>
+            </div>
             <div class="flex-1 flex justify-center">
-              <div style="width: ${widthPct}%" class="bg-amber-500 text-black font-extrabold text-center py-1 rounded-sm shadow">
+              <div style="width: ${widthPct}%" class="bg-gradient-to-r from-amber-500 to-amber-400 text-neutral-950 font-black text-center py-1 rounded-md shadow-md shadow-amber-500/10 hover:brightness-110 transition-all">
                 ${formatKoenig(p.koenigWon)}
               </div>
             </div>
@@ -725,7 +864,7 @@
         `;
       }).join('');
 
-      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (mind. 50% der Spieltage für Hauptwertung)
+      // 2. Jahreswertung
       const jahresContainer = document.getElementById('jahreswertungList');
       const minSpieltage = totalSpieltage > 0 ? (totalSpieltage * 0.5) : 0;
 
@@ -757,17 +896,29 @@
       const qualifiedList = allJahresPlayers.filter(p => p.isQualified).sort((a, b) => b.score - a.score);
       const unqualifiedList = allJahresPlayers.filter(p => !p.isQualified).sort((a, b) => b.score - a.score);
 
+      // KPI Jahresbester aktualisieren
+      if (qualifiedList.length > 0) {
+        document.getElementById('kpiJahresLeader').innerText = `${qualifiedList[0].name} (${(qualifiedList[0].score * 100).toFixed(1).replace('.', ',')} %)`;
+      } else {
+        document.getElementById('kpiJahresLeader').innerText = '-';
+      }
+
       const maxScore = Math.max(...allJahresPlayers.map(j => j.score), 0.01);
 
-      const renderBar = (p, isLight) => {
+      const renderBar = (p, isLight, idx) => {
         const widthPct = Math.max(30, (p.score / maxScore) * 100);
-        const barBg = isLight ? 'bg-rose-400 text-white' : 'bg-rose-600 text-white';
+        const barBg = isLight 
+          ? 'bg-rose-400/80 text-white font-medium' 
+          : 'bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold shadow-md shadow-rose-600/10';
         const textCol = isLight ? 'text-neutral-400' : 'text-neutral-300 font-medium';
         return `
-          <div class="flex items-center text-xs">
-            <span class="w-16 ${textCol}">${p.name}</span>
+          <div class="flex items-center text-xs player-target" data-player="${p.name}">
+            <div class="w-24 flex items-center ${textCol} truncate">
+              ${!isLight ? getMedalBadge(idx) : '<span class="text-neutral-600 font-mono text-[10px] w-4 inline-block">-</span>'}
+              <span class="truncate">${p.name}</span>
+            </div>
             <div class="flex-1 flex justify-center">
-              <div style="width: ${widthPct}%" class="${barBg} font-medium text-center py-1 rounded-sm shadow">
+              <div style="width: ${widthPct}%" class="${barBg} text-center py-1 rounded-md hover:brightness-110 transition-all">
                 ${(p.score * 100).toFixed(1).replace('.', ',')} %
               </div>
             </div>
@@ -775,16 +926,37 @@
         `;
       };
 
-      let html = qualifiedList.map(p => renderBar(p, false)).join('');
+      let html = qualifiedList.map((p, idx) => renderBar(p, false, idx)).join('');
 
       if (unqualifiedList.length > 0) {
         if (qualifiedList.length > 0) {
-          html += '<div class="border-t border-neutral-800 my-2"></div>';
+          html += '<div class="border-t border-neutral-800/80 my-2.5"></div>';
         }
-        html += unqualifiedList.map(p => renderBar(p, true)).join('');
+        html += unqualifiedList.map((p, idx) => renderBar(p, true, idx)).join('');
       }
 
       jahresContainer.innerHTML = html || '<div class="text-xs text-neutral-500 text-center py-2">Keine Daten verfügbar</div>';
+    }
+
+    // Spieler-Cross-Highlighting: Hovern hebt den Spieler überall hervor
+    function initCrossHighlighting() {
+      const targets = document.querySelectorAll('.player-target');
+      targets.forEach(el => {
+        const playerName = el.getAttribute('data-player');
+        if (!playerName) return;
+
+        el.addEventListener('mouseenter', () => {
+          document.querySelectorAll(`.player-target[data-player="${playerName}"]`).forEach(match => {
+            match.classList.add('player-highlight');
+          });
+        });
+
+        el.addEventListener('mouseleave', () => {
+          document.querySelectorAll(`.player-target[data-player="${playerName}"]`).forEach(match => {
+            match.classList.remove('player-highlight');
+          });
+        });
+      });
     }
 
     // CSV Laden & Ausführen

@@ -527,16 +527,11 @@
         `;
       }).join('');
 
-      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (mind. 50% der Spieltage erforderlich)
+      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (mind. 50% der Spieltage für Hauptwertung)
       const jahresContainer = document.getElementById('jahreswertungList');
       const minSpieltage = totalSpieltage > 0 ? (totalSpieltage * 0.5) : 0;
 
-      const eligiblePlayers = players.filter(p => {
-        const daysCount = playerSpieltage && playerSpieltage[p.name] ? playerSpieltage[p.name].size : 0;
-        return totalSpieltage === 0 || daysCount >= minSpieltage;
-      });
-
-      const jahresList = eligiblePlayers.map(p => {
+      const allJahresPlayers = players.map(p => {
         const getCatQuote = (catKey) => {
           const c = catMap && catMap[catKey] && catMap[catKey][p.name];
           if (!c || c.spiele === 0) return 0;
@@ -550,32 +545,48 @@
         const qKoenig = p.koenigTotal > 0 ? (p.koenigWon / p.koenigTotal) : 0;
 
         const score = (qRamsch + qOffensiv + qSolo + qContra + qKoenig) / 5;
+        const daysCount = playerSpieltage && playerSpieltage[p.name] ? playerSpieltage[p.name].size : 0;
+        const isQualified = totalSpieltage === 0 || daysCount >= minSpieltage;
 
         return {
           name: p.name,
-          score: score
+          score: score,
+          isQualified: isQualified,
+          daysCount: daysCount
         };
-      }).sort((a, b) => b.score - a.score);
+      });
 
-      if (jahresList.length === 0) {
-        jahresContainer.innerHTML = '<div class="text-xs text-neutral-500 text-center py-2">Keine Spieler mit mind. 50% Spieltagen</div>';
-      } else {
-        const maxScore = Math.max(...jahresList.map(j => j.score), 0.01);
+      const qualifiedList = allJahresPlayers.filter(p => p.isQualified).sort((a, b) => b.score - a.score);
+      const unqualifiedList = allJahresPlayers.filter(p => !p.isQualified).sort((a, b) => b.score - a.score);
 
-        jahresContainer.innerHTML = jahresList.map(p => {
-          const widthPct = Math.max(30, (p.score / maxScore) * 100);
-          return `
-            <div class="flex items-center text-xs">
-              <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
-              <div class="flex-1 flex justify-center">
-                <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1 rounded-sm shadow">
-                  ${(p.score * 100).toFixed(1).replace('.', ',')} %
-                </div>
+      const maxScore = Math.max(...allJahresPlayers.map(j => j.score), 0.01);
+
+      const renderBar = (p, isLight) => {
+        const widthPct = Math.max(30, (p.score / maxScore) * 100);
+        const barBg = isLight ? 'bg-rose-400 text-white' : 'bg-rose-600 text-white';
+        const textCol = isLight ? 'text-neutral-400' : 'text-neutral-300 font-medium';
+        return `
+          <div class="flex items-center text-xs">
+            <span class="w-16 ${textCol}">${p.name}</span>
+            <div class="flex-1 flex justify-center">
+              <div style="width: ${widthPct}%" class="${barBg} font-medium text-center py-1 rounded-sm shadow">
+                ${(p.score * 100).toFixed(1).replace('.', ',')} %
               </div>
             </div>
-          `;
-        }).join('');
+          </div>
+        `;
+      };
+
+      let html = qualifiedList.map(p => renderBar(p, false)).join('');
+
+      if (unqualifiedList.length > 0) {
+        if (qualifiedList.length > 0) {
+          html += '<div class="border-t border-neutral-800 my-2"></div>';
+        }
+        html += unqualifiedList.map(p => renderBar(p, true)).join('');
       }
+
+      jahresContainer.innerHTML = html || '<div class="text-xs text-neutral-500 text-center py-2">Keine Daten verfügbar</div>';
     }
 
     // CSV Laden & Ausführen

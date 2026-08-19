@@ -37,13 +37,23 @@
     <!-- Top Grid: Chart & Ranglisten -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      <!-- Spieltage Chart -->
-      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
-          SPIELTAGE <span class="text-neutral-500 font-normal">*ohne Ramsch</span>
-        </h2>
-        <div class="h-64 relative">
-          <canvas id="spieltageChart"></canvas>
+      <!-- Spieltage Chart & Treemap -->
+      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800 space-y-4">
+        <div>
+          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
+            SPIELTAGE <span class="text-neutral-500 font-normal">*ohne Ramsch</span>
+          </h2>
+          <div class="h-60 relative">
+            <canvas id="spieltageChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Treemap: Wer wie oft mitgespielt hat -->
+        <div class="pt-3 border-t border-neutral-800">
+          <h3 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-300 mb-2">
+            TEILNAHME <span class="text-neutral-500 font-normal lowercase">*Spieltage pro Spieler</span>
+          </h3>
+          <div id="attendanceTreemap" class="w-full h-32 relative overflow-hidden rounded bg-neutral-900/50 border border-neutral-800/80"></div>
         </div>
       </div>
 
@@ -443,6 +453,15 @@
 
       renderChart(chartLabels, chartSpiele, chartGewonnen, chartQuote);
 
+      // Treemap rendern (wer wie oft mitgespielt hat)
+      const treemapData = Object.keys(playerTotals).map(name => ({
+        name: name,
+        days: playerSpieltage[name] ? playerSpieltage[name].size : 0,
+        totalSpiele: playerTotals[name].total
+      })).filter(d => d.days > 0);
+
+      renderTreemap('attendanceTreemap', treemapData, allSpieltageSet.size);
+
       // Tabellen rendern
       renderCategoryTable('ramschTableBody', catMap['Ramsch'], true);
       renderCategoryTable('soloTableBody', catMap['Solo'], true);
@@ -453,6 +472,135 @@
       // Ranglisten rendern
       renderRankings(playerTotals, catMap, allSpieltageSet.size, playerSpieltage);
     }
+
+    let CURRENT_TREEMAP_DATA = null;
+
+    function renderTreemap(containerId, data, totalSpieltage) {
+      const container = document.getElementById(containerId || (CURRENT_TREEMAP_DATA && CURRENT_TREEMAP_DATA.containerId));
+      if (!container) return;
+
+      if (data) {
+        CURRENT_TREEMAP_DATA = { containerId, data, totalSpieltage };
+      } else if (CURRENT_TREEMAP_DATA) {
+        data = CURRENT_TREEMAP_DATA.data;
+        totalSpieltage = CURRENT_TREEMAP_DATA.totalSpieltage;
+      } else {
+        return;
+      }
+
+      container.innerHTML = '';
+      const rect = container.getBoundingClientRect();
+      const width = rect.width || container.clientWidth || 480;
+      const height = rect.height || container.clientHeight || 128;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="text-xs text-neutral-500 flex items-center justify-center h-full">Keine Daten</div>';
+        return;
+      }
+
+      function layoutTreemap(items, x, y, w, h) {
+        if (items.length === 0) return [];
+        if (items.length === 1) {
+          return [{ ...items[0], x, y, w, h }];
+        }
+
+        const results = [];
+
+        function squarify(children, curX, curY, curW, curH) {
+          if (children.length === 0) return;
+          if (children.length === 1) {
+            results.push({ ...children[0], x: curX, y: curY, w: curW, h: curH });
+            return;
+          }
+
+          const isHorizontal = curW >= curH;
+          const childTotal = children.reduce((s, c) => s + c.value, 0);
+
+          let running = 0;
+          let splitIndex = 1;
+          let minDiff = Infinity;
+
+          for (let i = 0; i < children.length - 1; i++) {
+            running += children[i].value;
+            const ratio = running / childTotal;
+            const diff = Math.abs(ratio - 0.5);
+            if (diff < minDiff) {
+              minDiff = diff;
+              splitIndex = i + 1;
+            }
+          }
+
+          const group1 = children.slice(0, splitIndex);
+          const group2 = children.slice(splitIndex);
+          const val1 = group1.reduce((s, c) => s + c.value, 0);
+          const fraction = childTotal > 0 ? (val1 / childTotal) : 0.5;
+
+          if (isHorizontal) {
+            const w1 = curW * fraction;
+            const w2 = curW - w1;
+            squarify(group1, curX, curY, w1, curH);
+            squarify(group2, curX + w1, curY, w2, curH);
+          } else {
+            const h1 = curH * fraction;
+            const h2 = curH - h1;
+            squarify(group1, curX, curY, curW, h1);
+            squarify(group2, curX, curY + h1, curW, h2);
+          }
+        }
+
+        squarify(items, x, y, w, h);
+        return results;
+      }
+
+      const items = data.map(d => ({
+        ...d,
+        value: Math.max(1, d.days)
+      })).sort((a, b) => b.value - a.value);
+
+      const laidOut = layoutTreemap(items, 0, 0, width, height);
+
+      const colorPalette = [
+        { bg: 'bg-emerald-950/80 hover:bg-emerald-900/90', border: 'border-emerald-700/60', text: 'text-emerald-300', badge: 'bg-emerald-800/70 text-emerald-200' },
+        { bg: 'bg-teal-950/80 hover:bg-teal-900/90', border: 'border-teal-700/60', text: 'text-teal-300', badge: 'bg-teal-800/70 text-teal-200' },
+        { bg: 'bg-cyan-950/80 hover:bg-cyan-900/90', border: 'border-cyan-700/60', text: 'text-cyan-300', badge: 'bg-cyan-800/70 text-cyan-200' },
+        { bg: 'bg-sky-950/80 hover:bg-sky-900/90', border: 'border-sky-700/60', text: 'text-sky-300', badge: 'bg-sky-800/70 text-sky-200' },
+        { bg: 'bg-blue-950/80 hover:bg-blue-900/90', border: 'border-blue-700/60', text: 'text-blue-300', badge: 'bg-blue-800/70 text-blue-200' },
+        { bg: 'bg-indigo-950/80 hover:bg-indigo-900/90', border: 'border-indigo-700/60', text: 'text-indigo-300', badge: 'bg-indigo-800/70 text-indigo-200' },
+        { bg: 'bg-violet-950/80 hover:bg-violet-900/90', border: 'border-violet-700/60', text: 'text-violet-300', badge: 'bg-violet-800/70 text-violet-200' }
+      ];
+
+      let html = '';
+      laidOut.forEach((tile, i) => {
+        const color = colorPalette[i % colorPalette.length];
+        const pct = totalSpieltage > 0 ? Math.round((tile.days / totalSpieltage) * 100) : 0;
+        
+        const leftPct = (tile.x / width) * 100;
+        const topPct = (tile.y / height) * 100;
+        const widthPct = (tile.w / width) * 100;
+        const heightPct = (tile.h / height) * 100;
+
+        html += `
+          <div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; padding: 2px;" class="box-border">
+            <div class="w-full h-full ${color.bg} border ${color.border} rounded p-1.5 flex flex-col justify-between transition-all overflow-hidden cursor-default shadow-sm select-none" title="${tile.name}: ${tile.days} Spieltage (${pct}%), ${tile.totalSpiele} Spiele total">
+              <div class="flex items-center justify-between gap-1 leading-none">
+                <span class="font-bold text-xs truncate ${color.text}">${tile.name}</span>
+                <span class="text-[10px] px-1 py-0.5 rounded font-mono ${color.badge} shrink-0">${tile.days}x</span>
+              </div>
+              <div class="text-[10px] text-neutral-400 font-mono flex items-center justify-between mt-auto leading-none pt-1">
+                <span>${pct}%</span>
+                <span class="truncate">${tile.totalSpiele} Sp.</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    window.addEventListener('resize', () => {
+      if (CURRENT_TREEMAP_DATA) renderTreemap();
+    });
 
     function renderChart(labels, spiele, gewonnen, quote) {
       const ctx = document.getElementById('spieltageChart').getContext('2d');

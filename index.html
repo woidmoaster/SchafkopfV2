@@ -176,16 +176,38 @@
       const sel = document.getElementById('yearFilter');
       if (!sel) return;
       const yearsSet = new Set();
+
       rows.forEach(r => {
         const y = getYearFromDateStr(r['Datum']);
-        if (y) yearsSet.add(y);
+        if (y) {
+          yearsSet.add(y);
+          return;
+        }
+        // If Datum isn't parseable, scan other fields for 4-digit years
+        Object.values(r).forEach(v => {
+          if (!v) return;
+          const matches = String(v).match(/(19|20)\d{2}/g);
+          if (matches) matches.forEach(m => yearsSet.add(parseInt(m, 10)));
+        });
       });
-      const years = Array.from(yearsSet).sort((a, b) => b - a);
-      const currentYear = new Date().getFullYear();
-      if (!years.includes(currentYear)) years.unshift(currentYear);
 
-      // Build options
+      let years = Array.from(yearsSet).sort((a, b) => b - a);
+      const currentYear = new Date().getFullYear();
+
+      if (years.length === 0) {
+        // Fallback: last 6 years including current
+        for (let i = 0; i < 6; i++) years.push(currentYear - i);
+      } else if (!years.includes(currentYear)) {
+        years.unshift(currentYear);
+      }
+
+      // Build options: add "Alle Jahre" option first
       sel.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.text = 'Alle Jahre';
+      sel.appendChild(allOpt);
+
       years.forEach(y => {
         const opt = document.createElement('option');
         opt.value = String(y);
@@ -193,8 +215,9 @@
         sel.appendChild(opt);
       });
 
-      // Default to current year
-      sel.value = String(currentYear);
+      // Default to current year if available, otherwise "Alle Jahre"
+      if (years.includes(currentYear)) sel.value = String(currentYear);
+      else sel.value = '';
 
       // Trigger re-processing when changed
       sel.addEventListener('change', applyFilterAndProcess);
@@ -202,9 +225,10 @@
 
     function applyFilterAndProcess() {
       const sel = document.getElementById('yearFilter');
-      const year = sel ? parseInt(sel.value, 10) : null;
+      const val = sel ? sel.value : '';
       let filtered = ALL_ROWS;
-      if (year) {
+      if (val) {
+        const year = parseInt(val, 10);
         filtered = ALL_ROWS.filter(r => {
           const y = getYearFromDateStr(r['Datum']);
           return y === year;

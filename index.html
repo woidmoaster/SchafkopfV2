@@ -237,6 +237,15 @@
       processData(filtered);
     }
 
+    function formatKoenig(val) {
+      if (!val || val === 0) return '0';
+      if (Math.abs(val - Math.round(val)) < 0.001) {
+        return String(Math.round(val));
+      }
+      const fixed = val.toFixed(2);
+      return fixed.endsWith('0') ? val.toFixed(1).replace('.', ',') : fixed.replace('.', ',');
+    }
+
     function processData(rows) {
       // 1. Gruppierung nach Datum (ohne Ramsch) für das Chart
       const datesMap = {};
@@ -305,7 +314,7 @@
         playerTotals[name].gewonnen += gewonnen;
       });
 
-      // 3. Pro Spieltag König nach Regeln ermitteln
+      // 3. Pro Spieltag König nach Regeln ermitteln (mit geteilten Punkten bei Gleichstand)
       Object.keys(spieldaten).forEach(datum => {
         const dayRows = spieldaten[datum];
 
@@ -322,14 +331,14 @@
             // Ramsch: der mit den meisten gewonnenen Spielen
             const maxWon = Math.max(...catRows.map(r => r.gewonnen));
             if (maxWon > 0) {
-              catRows.forEach(r => {
-                if (r.gewonnen === maxWon && r.name) {
-                  if (catMap[catKey] && catMap[catKey][r.name]) {
-                    catMap[catKey][r.name].koenigCount = (catMap[catKey][r.name].koenigCount || 0) + 1;
-                  }
-                  if (playerTotals[r.name]) {
-                    playerTotals[r.name].koenigWon = (playerTotals[r.name].koenigWon || 0) + 1;
-                  }
+              const winners = catRows.filter(r => r.gewonnen === maxWon && r.name);
+              const points = 1 / winners.length;
+              winners.forEach(r => {
+                if (catMap[catKey] && catMap[catKey][r.name]) {
+                  catMap[catKey][r.name].koenigCount = (catMap[catKey][r.name].koenigCount || 0) + points;
+                }
+                if (playerTotals[r.name]) {
+                  playerTotals[r.name].koenigWon = (playerTotals[r.name].koenigWon || 0) + points;
                 }
               });
             }
@@ -342,14 +351,14 @@
                 diff: r.gewonnen - r.verloren
               }));
               const maxDiff = Math.max(...withDiff.map(w => w.diff));
-              withDiff.forEach(w => {
-                if (w.diff === maxDiff && w.name) {
-                  if (catMap[catKey] && catMap[catKey][w.name]) {
-                    catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + 1;
-                  }
-                  if (playerTotals[w.name]) {
-                    playerTotals[w.name].koenigWon = (playerTotals[w.name].koenigWon || 0) + 1;
-                  }
+              const winners = withDiff.filter(w => w.diff === maxDiff && w.name);
+              const points = 1 / winners.length;
+              winners.forEach(w => {
+                if (catMap[catKey] && catMap[catKey][w.name]) {
+                  catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + points;
+                }
+                if (playerTotals[w.name]) {
+                  playerTotals[w.name].koenigWon = (playerTotals[w.name].koenigWon || 0) + points;
                 }
               });
             }
@@ -458,7 +467,7 @@
           <td class="py-1 text-right text-neutral-300">${row.gewonnen}</td>
           <td class="py-1 text-right text-neutral-200 font-bold">${row.quoteStr}</td>
           <td class="py-1 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
-          <td class="py-1 text-right text-amber-500 font-bold">${row.koenig}</td>
+          <td class="py-1 text-right text-amber-500 font-bold">${formatKoenig(row.koenig)}</td>
         </tr>
       `).join('');
     }
@@ -466,7 +475,7 @@
     function renderRankings(playerTotals) {
       const players = Object.values(playerTotals);
 
-      // 1. König (Goldene Trichter-Balken) - Summe aller gewonnenen Spiele in der Kategorie König
+      // 1. König (Goldene Trichter-Balken) - Summe aller gewonnenen Könige
       const koenigContainer = document.getElementById('koenigList');
       const koenigPlayers = [...players].sort((a, b) => b.koenigWon - a.koenigWon);
       const maxKoenig = Math.max(1, ...koenigPlayers.map(p => p.koenigWon));
@@ -478,7 +487,7 @@
             <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
             <div class="flex-1 flex justify-center">
               <div style="width: ${widthPct}%" class="bg-amber-500 text-black font-extrabold text-center py-1 rounded-sm shadow">
-                ${p.koenigWon}
+                ${formatKoenig(p.koenigWon)}
               </div>
             </div>
           </div>

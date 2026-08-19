@@ -245,6 +245,7 @@
       const categories = ['Ramsch', 'Solo', 'Offensiv', 'Contra'];
       const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {} };
       const playerTotals = {};
+      const spieldaten = {};
 
       rows.forEach(r => {
         const datum = r['Datum'] ? r['Datum'].trim() : null;
@@ -252,41 +253,117 @@
         const spiel = r['Spiel'] ? r['Spiel'].trim() : null;
         const total = cleanNumber(r['Spiele total']);
         const gewonnen = cleanNumber(r['Gewonnen']);
+        const verloren = r['Verloren'] !== undefined && r['Verloren'] !== '' 
+          ? cleanNumber(r['Verloren']) 
+          : Math.max(0, total - gewonnen);
 
         if (!name) return;
 
         // Gesamtübersicht pro Spieler initialisieren
         if (!playerTotals[name]) {
-          playerTotals[name] = { name, total: 0, gewonnen: 0, koenigWon: 0, koenigTotal: 0 };
+          playerTotals[name] = { name, total: 0, gewonnen: 0, koenigWon: 0 };
         }
 
-        const isKoenig = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
-        if (isKoenig) {
-          playerTotals[name].koenigWon += gewonnen;
-          playerTotals[name].koenigTotal += total;
+        const isKoenigRow = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
+
+        // Für Spieltage-König-Berechnung gruppieren
+        if (datum && !isKoenigRow) {
+          if (!spieldaten[datum]) spieldaten[datum] = [];
+          spieldaten[datum].push({ datum, name, spiel, total, gewonnen, verloren });
         }
 
-        if (total === 0) return;
+        if (total === 0 || isKoenigRow) return;
 
-        // Spieltage Chart Logik (ohne Ramsch und ohne König)
-        if (datum && spiel !== 'Ramsch' && !isKoenig) {
+        // Spieltage Chart Logik (ohne Ramsch)
+        if (datum && spiel !== 'Ramsch') {
           if (!datesMap[datum]) datesMap[datum] = { datum, spiele: 0, gewonnen: 0 };
           datesMap[datum].spiele += total;
           datesMap[datum].gewonnen += gewonnen;
         }
 
-        // Tabellen Logik
-        if (catMap[spiel]) {
-          if (!catMap[spiel][name]) catMap[spiel][name] = { name, spiele: 0, gewonnen: 0 };
-          catMap[spiel][name].spiele += total;
-          catMap[spiel][name].gewonnen += gewonnen;
+        // Standard-Kategorien (Ramsch, Solo, Offensiv, Contra)
+        let matchedCat = null;
+        if (spiel) {
+          const sLower = spiel.toLowerCase();
+          if (sLower === 'ramsch') matchedCat = 'Ramsch';
+          else if (sLower === 'solo') matchedCat = 'Solo';
+          else if (sLower === 'offensiv') matchedCat = 'Offensiv';
+          else if (sLower === 'contra' || sLower === 'kontra') matchedCat = 'Contra';
+        }
+
+        if (matchedCat && catMap[matchedCat]) {
+          if (!catMap[matchedCat][name]) {
+            catMap[matchedCat][name] = { name, spiele: 0, gewonnen: 0, verloren: 0, koenigCount: 0 };
+          }
+          catMap[matchedCat][name].spiele += total;
+          catMap[matchedCat][name].gewonnen += gewonnen;
+          catMap[matchedCat][name].verloren += verloren;
         }
 
         // Reguläre Spiele für Jahreswertung
-        if (!isKoenig) {
-          playerTotals[name].total += total;
-          playerTotals[name].gewonnen += gewonnen;
+        playerTotals[name].total += total;
+        playerTotals[name].gewonnen += gewonnen;
+      });
+
+      // 3. Pro Spieltag König nach Regeln ermitteln
+      Object.keys(spieldaten).forEach(datum => {
+        const dayRows = spieldaten[datum];
+
+        function evalCategoryKoenig(catKey, minWins) {
+          const catRows = dayRows.filter(r => {
+            const s = (r.spiel || '').toLowerCase();
+            if (catKey === 'Contra') return s === 'contra' || s === 'kontra';
+            return s === catKey.toLowerCase();
+          });
+
+          if (catRows.length === 0) return;
+
+          if (minWins === null) {
+            // Ramsch: der mit den meisten gewonnenen Spielen
+            const maxWon = Math.max(...catRows.map(r => r.gewonnen));
+            if (maxWon > 0) {
+              catRows.forEach(r => {
+                if (r.gewonnen === maxWon && r.name) {
+                  if (catMap[catKey] && catMap[catKey][r.name]) {
+                    catMap[catKey][r.name].koenigCount = (catMap[catKey][r.name].koenigCount || 0) + 1;
+                  }
+                  if (playerTotals[r.name]) {
+                    playerTotals[r.name].koenigWon = (playerTotals[r.name].koenigWon || 0) + 1;
+                  }
+                }
+              });
+            }
+          } else {
+            // Offensiv (min 10), Solo (min 3), Contra (min 3): minWins erforderlich, dann beste Differenz
+            const qualified = catRows.filter(r => r.gewonnen >= minWins);
+            if (qualified.length > 0) {
+              const withDiff = qualified.map(r => ({
+                name: r.name,
+                diff: r.gewonnen - r.verloren
+              }));
+              const maxDiff = Math.max(...withDiff.map(w => w.diff));
+              withDiff.forEach(w => {
+                if (w.diff === maxDiff && w.name) {
+                  if (catMap[catKey] && catMap[catKey][w.name]) {
+                    catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + 1;
+                  }
+                  if (playerTotals[w.name]) {
+                    playerTotals[w.name].koenigWon = (playerTotals[w.name].koenigWon || 0) + 1;
+                  }
+                }
+              });
+            }
+          }
         }
+
+        // Ramsch: Meiste gewonnene
+        evalCategoryKoenig('Ramsch', null);
+        // Offensiv: mind. 10 gewonnen, beste Differenz
+        evalCategoryKoenig('Offensiv', 10);
+        // Solo: mind. 3 gewonnen, beste Differenz
+        evalCategoryKoenig('Solo', 3);
+        // Contra: mind. 3 gewonnen, beste Differenz
+        evalCategoryKoenig('Contra', 3);
       });
 
       // Chart Daten aufbereiten
@@ -364,9 +441,8 @@
 
       const list = Object.values(playersData || {}).map(p => {
         const quote = p.spiele > 0 ? (p.gewonnen / p.spiele) : 0;
-        // HIER DEINE FORMEL FÜR WERTUNG & KÖNIG ANPASSEN:
         const wertung = (quote * p.gewonnen).toFixed(2);
-        const koenig = (quote * 5).toFixed(2); // Platzhalter
+        const koenig = p.koenigCount || 0;
         return { ...p, quoteVal: quote, quoteStr: Math.round(quote * 100) + ' %', wertung, koenig };
       });
 
@@ -382,7 +458,7 @@
           <td class="py-1 text-right text-neutral-300">${row.gewonnen}</td>
           <td class="py-1 text-right text-neutral-200 font-bold">${row.quoteStr}</td>
           <td class="py-1 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
-          <td class="py-1 text-right text-amber-500">${row.koenig.replace('.', ',')}</td>
+          <td class="py-1 text-right text-amber-500 font-bold">${row.koenig}</td>
         </tr>
       `).join('');
     }

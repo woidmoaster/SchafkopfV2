@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OTTO Schafkopf Stammtisch</title>
+  
+  <!-- Tailwind CSS & Chart.js & PapaParse via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body class="bg-black text-white font-sans p-4 md:p-8 min-h-screen">
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row items-center justify-between border-b border-neutral-800 pb-4 mb-6">
+      <div class="flex items-center space-x-4">
+        <!-- Optional: Karten-Icon / Bild -->
+        <div class="text-4xl">🂡</div>
+        <div>
+          <h1 class="text-4xl font-extrabold tracking-wider">OTTO</h1>
+          <p class="text-neutral-400 text-sm">Schafkopf Stammtisch</p>
+        </div>
+      </div>
+      <div class="text-right text-xs text-neutral-400 mt-2 md:mt-0">
+        Jeden dritten Donnerstag,<br>oder wann wir halt Zeit haben :)
+      </div>
+    </header>
+
+    <!-- Grid Layout -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Linke Spalte -->
+      <section class="space-y-6">
+        
+        <!-- Kombidiagramm: Spieltage -->
+        <div class="bg-neutral-950 p-4 rounded border border-neutral-800">
+          <h2 class="text-center font-bold tracking-wide mb-2 text-sm uppercase">SPIELTAGE <span class="text-neutral-500 text-xs">*ohne Ramsch</span></h2>
+          <div class="h-64">
+            <canvas id="spieltageChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Kategorie-Tabelle: z.B. Ramsch / Offensiv -->
+        <div class="bg-neutral-950 p-4 rounded border border-neutral-800">
+          <h2 class="text-center font-bold tracking-wide mb-3 text-sm uppercase">RAMSCH</h2>
+          <table class="w-full text-xs text-left" id="ramschTable">
+            <thead>
+              <tr class="text-neutral-400 border-b border-neutral-800">
+                <th class="py-1">Name</th>
+                <th class="py-1 text-right">Sp.</th>
+                <th class="py-1 text-right">+</th>
+                <th class="py-1 text-right">Quote</th>
+                <th class="py-1 text-right">Wertung</th>
+                <th class="py-1 text-right">König</th>
+              </tr>
+            </thead>
+            <tbody id="ramschTableBody" class="divide-y divide-neutral-900 font-mono">
+              <!-- Dynamisch via JS befüllt -->
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+
+      <!-- Rechte Spalte -->
+      <section class="space-y-6">
+
+        <!-- Trichter: König -->
+        <div class="bg-neutral-950 p-4 rounded border border-neutral-800">
+          <h2 class="text-center font-bold tracking-wide mb-4 text-sm uppercase">KÖNIG</h2>
+          <div id="koenigList" class="space-y-2">
+            <!-- Dynamisch via JS befüllt -->
+          </div>
+        </div>
+
+        <!-- Trichter: Jahreswertung -->
+        <div class="bg-neutral-950 p-4 rounded border border-neutral-800">
+          <h2 class="text-center font-bold tracking-wide mb-4 text-sm uppercase">JAHRESWERTUNG</h2>
+          <div id="jahreswertungList" class="space-y-2">
+            <!-- Dynamisch via JS befüllt -->
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    // DEINE GOOGLE SHEETS CSV-URL HIER EINTRAGEN:
+    const GOOGLE_SHEET_CSV_URL = "DEINE_CSV_URL_HIER";
+
+    // Beispieldaten / Fallback falls keine URL hinterlegt ist
+    const sampleSpieltage = [
+      { datum: '02.01.26', spiele: 18, gewonnen: 11, quote: 61 },
+      { datum: '22.01.26', spiele: 20, gewonnen: 12, quote: 60 },
+      { datum: '13.02.26', spiele: 15, gewonnen: 11, quote: 71 },
+      { datum: '03.03.26', spiele: 22, gewonnen: 16, quote: 72 },
+      { datum: '20.03.26', spiele: 19, gewonnen: 13, quote: 67 }
+    ];
+
+    const sampleKoenig = [
+      { name: 'Tobi', score: 7.5 },
+      { name: 'Chris', score: 7.0 },
+      { name: 'Georg', score: 6.0 },
+      { name: 'Tom', score: 4.5 },
+      { name: 'Andi', score: 3.0 },
+      { name: 'Matze', score: 1.0 }
+    ];
+
+    const sampleJahreswertung = [
+      { name: 'Matze', score: 0.84667 },
+      { name: 'Georg', score: 0.76570 },
+      { name: 'Chris', score: 0.67259 },
+      { name: 'Tobi', score: 0.64490 },
+      { name: 'Tom', score: 0.58355 },
+      { name: 'Andi', score: 0.55003 }
+    ];
+
+    const sampleRamsch = [
+      { name: 'Matze', spiele: 18, siege: 15, quote: '83 %', wertung: '12,50', koenig: '1,00' },
+      { name: '👑 Georg', spiele: 81, siege: 66, quote: '81 %', wertung: '53,78', koenig: '4,00' },
+      { name: 'Chris', spiele: 123, siege: 91, quote: '74 %', wertung: '67,33', koenig: '2,00' },
+      { name: 'Tobi', spiele: 123, siege: 89, quote: '72 %', wertung: '64,40', koenig: '2,00' },
+      { name: 'Tom', spiele: 38, siege: 25, quote: '66 %', wertung: '16,45', koenig: '1,00' },
+      { name: 'Andi', spiele: 118, siege: 70, quote: '59 %', wertung: '41,53', koenig: '0,00' }
+    ];
+
+    // Initialisierung der Charts & UI
+    function renderDashboard(data) {
+      // 1. Spieltage Mixed Chart
+      const ctx = document.getElementById('spieltageChart').getContext('2d');
+      new Chart(ctx, {
+        data: {
+          labels: data.spieltage.map(d => d.datum),
+          datasets: [
+            {
+              type: 'line',
+              label: 'Quote (%)',
+              data: data.spieltage.map(d => d.quote),
+              borderColor: '#f97316',
+              backgroundColor: '#f97316',
+              yAxisID: 'yQuote',
+              tension: 0.2
+            },
+            {
+              type: 'bar',
+              label: 'Spiele',
+              data: data.spieltage.map(d => d.spiele),
+              backgroundColor: '#2563eb',
+              yAxisID: 'yCount'
+            },
+            {
+              type: 'bar',
+              label: 'Gewonnen',
+              data: data.spieltage.map(d => d.gewonnen),
+              backgroundColor: '#38bdf8',
+              yAxisID: 'yCount'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            yCount: { position: 'left', beginAtZero: true, grid: { color: '#262626' } },
+            yQuote: { position: 'right', min: 0, max: 100, grid: { display: false } }
+          },
+          plugins: {
+            legend: { labels: { color: '#a3a3a3', boxWidth: 12 } }
+          }
+        }
+      });
+
+      // 2. König Trichter (Gelb/Gold)
+      const koenigContainer = document.getElementById('koenigList');
+      const maxKoenig = Math.max(...data.koenig.map(k => k.score));
+      data.koenig.forEach(item => {
+        const widthPct = Math.max(25, (item.score / maxKoenig) * 100);
+        koenigContainer.innerHTML += `
+          <div class="flex items-center text-xs">
+            <span class="w-14 text-neutral-300 font-medium">${item.name}</span>
+            <div class="flex-1 flex justify-center">
+              <div style="width: ${widthPct}%" class="bg-amber-500 text-black font-bold text-center py-1.5 rounded-sm shadow">
+                ${item.score.toLocaleString('de-DE', { minimumFractionDigits: 1 })}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      // 3. Jahreswertung Trichter (Rot/Koralle)
+      const jahresContainer = document.getElementById('jahreswertungList');
+      const maxJahres = Math.max(...data.jahreswertung.map(j => j.score));
+      data.jahreswertung.forEach(item => {
+        const widthPct = Math.max(35, (item.score / maxJahres) * 100);
+        jahresContainer.innerHTML += `
+          <div class="flex items-center text-xs">
+            <span class="w-14 text-neutral-300 font-medium">${item.name}</span>
+            <div class="flex-1 flex justify-center">
+              <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1.5 rounded-sm shadow">
+                ${item.score.toFixed(5).replace('.', ',')}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      // 4. Ramsch Tabelle
+      const ramschBody = document.getElementById('ramschTableBody');
+      data.ramsch.forEach(row => {
+        ramschBody.innerHTML += `
+          <tr class="hover:bg-neutral-900">
+            <td class="py-1.5 font-sans">${row.name}</td>
+            <td class="py-1.5 text-right">${row.spiele}</td>
+            <td class="py-1.5 text-right">${row.siege}</td>
+            <td class="py-1.5 text-right">${row.quote}</td>
+            <td class="py-1.5 text-right">${row.wertung}</td>
+            <td class="py-1.5 text-right">${row.koenig}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Daten abrufen oder Fallback nutzen
+    if (GOOGLE_SHEET_CSV_URL.startsWith("http")) {
+      Papa.parse(GOOGLE_SHEET_CSV_URL, {
+        download: true,
+        header: true,
+        complete: function(results) {
+          // Hier verarbeitest du results.data passend zu deinem Tabellenaufbau
+          console.log("CSV geladen:", results.data);
+          // renderDashboard(...);
+        }
+      });
+    } else {
+      // Demo-Rendern mit Beispieldaten
+      renderDashboard({
+        spieltage: sampleSpieltage,
+        koenig: sampleKoenig,
+        jahreswertung: sampleJahreswertung,
+        ramsch: sampleRamsch
+      });
+    }
+  </script>
+</body>
+</html>

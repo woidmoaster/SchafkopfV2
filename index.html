@@ -141,6 +141,23 @@
         </table>
       </div>
 
+      <!-- KÖNIG -->
+      <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
+        <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">KÖNIG</h2>
+        <table class="w-full text-xs text-left">
+          <thead>
+            <tr class="text-neutral-400 border-b border-neutral-800">
+              <th class="py-1">Name</th>
+              <th class="py-1 text-right">Sp.</th>
+              <th class="py-1 text-right">+</th>
+              <th class="py-1 text-right">Quote</th>
+              <th class="py-1 text-right">Wertung</th>
+            </tr>
+          </thead>
+          <tbody id="koenigTableBody" class="divide-y divide-neutral-900 font-mono"></tbody>
+        </table>
+      </div>
+
     </div>
 
   </div>
@@ -254,7 +271,7 @@
       
       // 2. Gruppierung nach Kategorie & Spieler
       const categories = ['Ramsch', 'Solo', 'Offensiv', 'Contra'];
-      const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {} };
+      const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {}, König: {} };
       const playerTotals = {};
       const spieldaten = {};
       const allSpieltageSet = new Set();
@@ -287,11 +304,18 @@
 
         const isKoenigRow = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
 
-        // Für das König-Balkendiagramm & Quote: Summe aller Zeilen mit Spiel = 'König'
+        // Für das König-Balkendiagramm, Quote & König-Tabelle: Zeilen mit Spiel = 'König'
         if (isKoenigRow) {
           hasExplicitKoenigRows = true;
           playerTotals[name].koenigWon += gewonnen;
           playerTotals[name].koenigTotal += total;
+
+          if (!catMap['König'][name]) {
+            catMap['König'][name] = { name, spiele: 0, gewonnen: 0, verloren: 0 };
+          }
+          catMap['König'][name].spiele += total;
+          catMap['König'][name].gewonnen += gewonnen;
+          catMap['König'][name].verloren += verloren;
           return;
         }
 
@@ -399,6 +423,15 @@
             }
           });
           playerTotals[name].koenigWon = sum;
+          const possible = (playerSpieltage[name]?.size || 0) * 4;
+          playerTotals[name].koenigTotal = possible;
+
+          catMap['König'][name] = {
+            name,
+            spiele: possible,
+            gewonnen: sum,
+            verloren: Math.max(0, possible - sum)
+          };
         });
       }
 
@@ -411,10 +444,11 @@
       renderChart(chartLabels, chartSpiele, chartGewonnen, chartQuote);
 
       // Tabellen rendern
-      renderCategoryTable('ramschTableBody', catMap['Ramsch']);
-      renderCategoryTable('soloTableBody', catMap['Solo']);
-      renderCategoryTable('offensivTableBody', catMap['Offensiv']);
-      renderCategoryTable('contraTableBody', catMap['Contra']);
+      renderCategoryTable('ramschTableBody', catMap['Ramsch'], true);
+      renderCategoryTable('soloTableBody', catMap['Solo'], true);
+      renderCategoryTable('offensivTableBody', catMap['Offensiv'], true);
+      renderCategoryTable('contraTableBody', catMap['Contra'], true);
+      renderCategoryTable('koenigTableBody', catMap['König'], false);
 
       // Ranglisten rendern
       renderRankings(playerTotals, catMap, allSpieltageSet.size, playerSpieltage);
@@ -471,7 +505,7 @@
       });
     }
 
-    function renderCategoryTable(tbodyId, playersData) {
+    function renderCategoryTable(tbodyId, playersData, showKoenigColumn = true) {
       const tbody = document.getElementById(tbodyId);
       if (!tbody) return;
 
@@ -488,18 +522,18 @@
       // Höchste König-Anzahl in dieser Kategorie ermitteln
       const maxKoenig = Math.max(0, ...list.map(p => p.koenig));
 
-      tbody.innerHTML = list.map((row) => {
-        const hasCrown = maxKoenig > 0 && row.koenig === maxKoenig;
+      tbody.innerHTML = list.map((row, idx) => {
+        const hasCrown = showKoenigColumn ? (maxKoenig > 0 && row.koenig === maxKoenig) : (idx === 0);
         return `
         <tr class="hover:bg-neutral-900 border-b border-neutral-900/50">
           <td class="py-1 font-sans ${hasCrown ? 'text-amber-400 font-bold' : 'text-neutral-200'}">
             ${hasCrown ? '👑 ' : ''}${row.name}
           </td>
-          <td class="py-1 text-right text-neutral-400">${row.spiele}</td>
-          <td class="py-1 text-right text-neutral-300">${row.gewonnen}</td>
+          <td class="py-1 text-right text-neutral-400">${formatKoenig(row.spiele)}</td>
+          <td class="py-1 text-right text-neutral-300">${formatKoenig(row.gewonnen)}</td>
           <td class="py-1 text-right text-neutral-200 font-bold">${row.quoteStr}</td>
           <td class="py-1 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
-          <td class="py-1 text-right text-amber-500 font-bold">${formatKoenig(row.koenig)}</td>
+          ${showKoenigColumn ? `<td class="py-1 text-right text-amber-500 font-bold">${formatKoenig(row.koenig)}</td>` : ''}
         </tr>
       `;
       }).join('');

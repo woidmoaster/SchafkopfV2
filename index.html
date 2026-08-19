@@ -473,10 +473,15 @@
       // Nach Quote absteigend sortieren
       list.sort((a, b) => b.quoteVal - a.quoteVal);
 
-      tbody.innerHTML = list.map((row, idx) => `
+      // Höchste König-Anzahl in dieser Kategorie ermitteln
+      const maxKoenig = Math.max(0, ...list.map(p => p.koenig));
+
+      tbody.innerHTML = list.map((row) => {
+        const hasCrown = maxKoenig > 0 && row.koenig === maxKoenig;
+        return `
         <tr class="hover:bg-neutral-900 border-b border-neutral-900/50">
-          <td class="py-1 font-sans ${idx === 0 ? 'text-amber-400 font-bold' : 'text-neutral-200'}">
-            ${idx === 0 ? '👑 ' : ''}${row.name}
+          <td class="py-1 font-sans ${hasCrown ? 'text-amber-400 font-bold' : 'text-neutral-200'}">
+            ${hasCrown ? '👑 ' : ''}${row.name}
           </td>
           <td class="py-1 text-right text-neutral-400">${row.spiele}</td>
           <td class="py-1 text-right text-neutral-300">${row.gewonnen}</td>
@@ -484,7 +489,8 @@
           <td class="py-1 text-right text-neutral-400">${row.wertung.replace('.', ',')}</td>
           <td class="py-1 text-right text-amber-500 font-bold">${formatKoenig(row.koenig)}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function renderRankings(playerTotals) {

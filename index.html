@@ -192,7 +192,7 @@
           <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
             <span>🗡️</span> SOLO
           </h2>
-          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Siege</span>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Diff</span>
         </div>
         <table class="w-full text-xs text-left">
           <thead>
@@ -215,7 +215,7 @@
           <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
             <span>⚡</span> OFFENSIV
           </h2>
-          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 10 & Siege</span>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 10 & Diff</span>
         </div>
         <table class="w-full text-xs text-left">
           <thead>
@@ -238,7 +238,7 @@
           <h2 class="font-bold tracking-wider text-xs uppercase text-neutral-200 flex items-center gap-2">
             <span>🛡️</span> CONTRA
           </h2>
-          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Siege</span>
+          <span class="text-[10px] text-neutral-400 font-mono">👑 = Min 3 & Diff</span>
         </div>
         <table class="w-full text-xs text-left">
           <thead>
@@ -505,20 +505,18 @@
               });
             }
           } else {
+            // Offensiv (min 10), Solo (min 3), Contra (min 3): mind. minWins und dann beste Differenz
             const qualified = catRows.filter(r => r.gewonnen >= minWins);
             if (qualified.length > 0) {
-              const maxWon = Math.max(...qualified.map(r => r.gewonnen));
-              const topWinners = qualified.filter(r => r.gewonnen === maxWon);
-
-              const withDiff = topWinners.map(r => ({
+              const withDiff = qualified.map(r => ({
                 name: r.name,
                 diff: r.gewonnen - r.verloren
               }));
               const maxDiff = Math.max(...withDiff.map(w => w.diff));
-              const finalWinners = withDiff.filter(w => w.diff === maxDiff && w.name);
-              const points = 1 / finalWinners.length;
+              const winners = withDiff.filter(w => w.diff === maxDiff && w.name);
+              const points = 1 / winners.length;
 
-              finalWinners.forEach(w => {
+              winners.forEach(w => {
                 if (catMap[catKey] && catMap[catKey][w.name]) {
                   catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + points;
                 }

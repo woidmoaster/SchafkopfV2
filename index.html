@@ -57,7 +57,9 @@
 
         <!-- Jahreswertung -->
         <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
-          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">JAHRESWERTUNG</h2>
+          <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
+            JAHRESWERTUNG <span class="text-neutral-500 font-normal lowercase">*mind. 50% der Spieltage</span>
+          </h2>
           <div id="jahreswertungList" class="space-y-1.5"></div>
         </div>
       </div>
@@ -255,6 +257,8 @@
       const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {} };
       const playerTotals = {};
       const spieldaten = {};
+      const allSpieltageSet = new Set();
+      const playerSpieltage = {};
       let hasExplicitKoenigRows = false;
 
       rows.forEach(r => {
@@ -267,7 +271,14 @@
           ? cleanNumber(r['Verloren']) 
           : Math.max(0, total - gewonnen);
 
+        if (datum) allSpieltageSet.add(datum);
+
         if (!name) return;
+
+        if (datum && total > 0) {
+          if (!playerSpieltage[name]) playerSpieltage[name] = new Set();
+          playerSpieltage[name].add(datum);
+        }
 
         // Gesamtübersicht pro Spieler initialisieren
         if (!playerTotals[name]) {
@@ -406,7 +417,7 @@
       renderCategoryTable('contraTableBody', catMap['Contra']);
 
       // Ranglisten rendern
-      renderRankings(playerTotals, catMap);
+      renderRankings(playerTotals, catMap, allSpieltageSet.size, playerSpieltage);
     }
 
     function renderChart(labels, spiele, gewonnen, quote) {
@@ -494,7 +505,7 @@
       }).join('');
     }
 
-    function renderRankings(playerTotals, catMap) {
+    function renderRankings(playerTotals, catMap, totalSpieltage, playerSpieltage) {
       const players = Object.values(playerTotals);
 
       // 1. König (Goldene Trichter-Balken) - Summe aller gewonnenen Könige
@@ -516,9 +527,16 @@
         `;
       }).join('');
 
-      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (Ramsch, Offensiv, Solo, Contra, König)
+      // 2. Jahreswertung (Rote Trichter-Balken) - Mittelwert der 5 Quoten (mind. 50% der Spieltage erforderlich)
       const jahresContainer = document.getElementById('jahreswertungList');
-      const jahresList = players.map(p => {
+      const minSpieltage = totalSpieltage > 0 ? (totalSpieltage * 0.5) : 0;
+
+      const eligiblePlayers = players.filter(p => {
+        const daysCount = playerSpieltage && playerSpieltage[p.name] ? playerSpieltage[p.name].size : 0;
+        return totalSpieltage === 0 || daysCount >= minSpieltage;
+      });
+
+      const jahresList = eligiblePlayers.map(p => {
         const getCatQuote = (catKey) => {
           const c = catMap && catMap[catKey] && catMap[catKey][p.name];
           if (!c || c.spiele === 0) return 0;
@@ -539,21 +557,25 @@
         };
       }).sort((a, b) => b.score - a.score);
 
-      const maxScore = Math.max(...jahresList.map(j => j.score), 0.01);
+      if (jahresList.length === 0) {
+        jahresContainer.innerHTML = '<div class="text-xs text-neutral-500 text-center py-2">Keine Spieler mit mind. 50% Spieltagen</div>';
+      } else {
+        const maxScore = Math.max(...jahresList.map(j => j.score), 0.01);
 
-      jahresContainer.innerHTML = jahresList.map(p => {
-        const widthPct = Math.max(30, (p.score / maxScore) * 100);
-        return `
-          <div class="flex items-center text-xs">
-            <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
-            <div class="flex-1 flex justify-center">
-              <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1 rounded-sm shadow">
-                ${(p.score * 100).toFixed(1).replace('.', ',')} %
+        jahresContainer.innerHTML = jahresList.map(p => {
+          const widthPct = Math.max(30, (p.score / maxScore) * 100);
+          return `
+            <div class="flex items-center text-xs">
+              <span class="w-16 text-neutral-300 font-medium">${p.name}</span>
+              <div class="flex-1 flex justify-center">
+                <div style="width: ${widthPct}%" class="bg-rose-600 text-white font-medium text-center py-1 rounded-sm shadow">
+                  ${(p.score * 100).toFixed(1).replace('.', ',')} %
+                </div>
               </div>
             </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      }
     }
 
     // CSV Laden & Ausführen

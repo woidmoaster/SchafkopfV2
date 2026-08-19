@@ -255,6 +255,7 @@
       const catMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {} };
       const playerTotals = {};
       const spieldaten = {};
+      let hasExplicitKoenigRows = false;
 
       rows.forEach(r => {
         const datum = r['Datum'] ? r['Datum'].trim() : null;
@@ -275,13 +276,20 @@
 
         const isKoenigRow = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
 
+        // Für das König-Balkendiagramm: Summe aller Zeilen mit Spiel = 'König' auf 'Gewonnen'
+        if (isKoenigRow) {
+          hasExplicitKoenigRows = true;
+          playerTotals[name].koenigWon += gewonnen;
+          return;
+        }
+
         // Für Spieltage-König-Berechnung gruppieren
-        if (datum && !isKoenigRow) {
+        if (datum) {
           if (!spieldaten[datum]) spieldaten[datum] = [];
           spieldaten[datum].push({ datum, name, spiel, total, gewonnen, verloren });
         }
 
-        if (total === 0 || isKoenigRow) return;
+        if (total === 0) return;
 
         // Spieltage Chart Logik (ohne Ramsch)
         if (datum && spiel !== 'Ramsch') {
@@ -314,7 +322,7 @@
         playerTotals[name].gewonnen += gewonnen;
       });
 
-      // 3. Pro Spieltag König nach Regeln ermitteln (mit geteilten Punkten bei Gleichstand)
+      // 3. Pro Spieltag König nach Regeln ermitteln (für die Spalten der 4 Tabellen)
       Object.keys(spieldaten).forEach(datum => {
         const dayRows = spieldaten[datum];
 
@@ -337,9 +345,6 @@
                 if (catMap[catKey] && catMap[catKey][r.name]) {
                   catMap[catKey][r.name].koenigCount = (catMap[catKey][r.name].koenigCount || 0) + points;
                 }
-                if (playerTotals[r.name]) {
-                  playerTotals[r.name].koenigWon = (playerTotals[r.name].koenigWon || 0) + points;
-                }
               });
             }
           } else {
@@ -357,9 +362,6 @@
                 if (catMap[catKey] && catMap[catKey][w.name]) {
                   catMap[catKey][w.name].koenigCount = (catMap[catKey][w.name].koenigCount || 0) + points;
                 }
-                if (playerTotals[w.name]) {
-                  playerTotals[w.name].koenigWon = (playerTotals[w.name].koenigWon || 0) + points;
-                }
               });
             }
           }
@@ -374,6 +376,19 @@
         // Contra: mind. 3 gewonnen, beste Differenz
         evalCategoryKoenig('Contra', 3);
       });
+
+      // Falls keine expliziten Spiel=König Zeilen existieren: Fallback auf Summe der Kategorie-Könige
+      if (!hasExplicitKoenigRows) {
+        Object.keys(playerTotals).forEach(name => {
+          let sum = 0;
+          categories.forEach(cat => {
+            if (catMap[cat] && catMap[cat][name]) {
+              sum += catMap[cat][name].koenigCount || 0;
+            }
+          });
+          playerTotals[name].koenigWon = sum;
+        });
+      }
 
       // Chart Daten aufbereiten
       const chartLabels = Object.keys(datesMap);

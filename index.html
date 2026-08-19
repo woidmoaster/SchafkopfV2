@@ -41,7 +41,7 @@
       <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800 space-y-4">
         <div>
           <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
-            SPIELTAGE <span class="text-neutral-500 font-normal">*ohne Ramsch</span>
+            SPIELTAGE <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">1</sup>
           </h2>
           <div class="h-60 relative">
             <canvas id="spieltageChart"></canvas>
@@ -51,7 +51,7 @@
         <!-- Treemap: Wer wie oft mitgespielt hat -->
         <div class="pt-3 border-t border-neutral-800">
           <h3 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-300 mb-2">
-            TEILNAHME <span class="text-neutral-500 font-normal lowercase">*Spieltage pro Spieler</span>
+            TEILNAHME <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">2</sup>
           </h3>
           <div id="attendanceTreemap" class="w-full h-32 relative overflow-hidden rounded bg-neutral-900/50 border border-neutral-800/80"></div>
         </div>
@@ -68,7 +68,7 @@
         <!-- Jahreswertung -->
         <div class="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
           <h2 class="text-center font-bold tracking-wide text-xs uppercase text-neutral-200 mb-3">
-            JAHRESWERTUNG <span class="text-neutral-500 font-normal lowercase">*mind. 50% der Spieltage</span>
+            JAHRESWERTUNG <sup class="text-neutral-500 font-normal text-[10px] ml-0.5">3</sup>
           </h2>
           <div id="jahreswertungList" class="space-y-1.5"></div>
         </div>
@@ -169,6 +169,22 @@
       </div>
 
     </div>
+
+    <!-- Footer: Anmerkungen / Fußnoten -->
+    <footer class="pt-4 pb-8 border-t border-neutral-900 text-xs text-neutral-500 space-y-1.5 font-sans">
+      <div class="flex items-start gap-2">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">¹</span>
+        <span><strong>Spieltage:</strong> Auswertung ohne Ramsch.</span>
+      </div>
+      <div class="flex items-start gap-2">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">²</span>
+        <span><strong>Teilnahme:</strong> Anzahl der besuchten Spieltage pro Spieler im ausgewählten Zeitraum.</span>
+      </div>
+      <div class="flex items-start gap-2">
+        <span class="text-neutral-400 font-mono font-bold text-[11px] shrink-0">³</span>
+        <span><strong>Jahreswertung:</strong> Mittelwert der 5 Quoten (Ramsch, Offensiv, Solo, Contra, König). Für die Hauptwertung ist die Teilnahme an mindestens 50% der Spieltage erforderlich (Spieler darunter sind abgetrennt).</span>
+      </div>
+    </footer>
 
   </div>
 

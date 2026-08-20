@@ -505,15 +505,20 @@
               });
             }
           } else {
-            // Offensiv (min 10), Solo (min 3), Contra (min 3): mind. minWins und dann beste Differenz
+            // Offensiv (min 10), Solo (min 3), Contra (min 3): mind. minWins, beste Differenz, bei gleicher Differenz mehr Siege
             const qualified = catRows.filter(r => r.gewonnen >= minWins);
             if (qualified.length > 0) {
               const withDiff = qualified.map(r => ({
                 name: r.name,
+                gewonnen: r.gewonnen,
                 diff: r.gewonnen - r.verloren
               }));
               const maxDiff = Math.max(...withDiff.map(w => w.diff));
-              const winners = withDiff.filter(w => w.diff === maxDiff && w.name);
+              const topDiffCandidates = withDiff.filter(w => w.diff === maxDiff && w.name);
+
+              // Bei gleicher Differenz entscheidet die höhere Anzahl an Siegen
+              const maxWon = Math.max(...topDiffCandidates.map(w => w.gewonnen));
+              const winners = topDiffCandidates.filter(w => w.gewonnen === maxWon);
               const points = 1 / winners.length;
 
               winners.forEach(w => {

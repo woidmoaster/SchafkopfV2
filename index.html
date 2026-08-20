@@ -102,6 +102,29 @@
       </div>
     </div>
 
+    <!-- Insights & Highlights des letzten Spieltags -->
+    <div id="insightsSection" class="bg-neutral-900/60 backdrop-blur-md p-5 rounded-2xl border border-neutral-800/80 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-neutral-800/80 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-sm shrink-0">
+            💡
+          </div>
+          <div>
+            <h2 id="insightsTitle" class="font-bold tracking-wider text-xs md:text-sm uppercase text-neutral-100 flex items-center gap-2">
+              INSIGHTS & HIGHLIGHTS – SPIELTAG <span id="insightsDate" class="text-amber-400 font-mono">-</span>
+            </h2>
+            <p class="text-[11px] text-neutral-400">Automatische Spieltags-Analyse: Formkurven, Ausreißer & Taktiken</p>
+          </div>
+        </div>
+        <div id="insightsKingsBadge" class="flex items-center gap-2 flex-wrap"></div>
+      </div>
+
+      <!-- Insight Cards Grid -->
+      <div id="insightsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+        <!-- Dynamisch befüllt -->
+      </div>
+    </div>
+
     <!-- Top Grid: Chart & Treemap (Links) | König & Jahreswertung (Rechts) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
@@ -596,8 +619,297 @@
       // Ranglisten rendern
       renderRankings(playerTotals, catMap, allSpieltageSet.size, playerSpieltage);
 
+      // Insights für den letzten Spieltag berechnen & rendern
+      renderInsights(rows, allSpieltageSet, spieldaten, playerTotals, catMap, playerSpieltage);
+
       // Cross-Highlighting initialisieren
       initCrossHighlighting();
+    }
+
+    function parseGermanDate(dStr) {
+      if (!dStr) return 0;
+      const parts = String(dStr).trim().split('.');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
+      }
+      return new Date(dStr).getTime() || 0;
+    }
+
+    function renderInsights(rows, allSpieltageSet, spieldaten, playerTotals, catMap, playerSpieltage) {
+      const container = document.getElementById('insightsSection');
+      const grid = document.getElementById('insightsGrid');
+      const dateEl = document.getElementById('insightsDate');
+      const kingsEl = document.getElementById('insightsKingsBadge');
+      if (!container || !grid) return;
+
+      const sortedDates = Array.from(allSpieltageSet).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+      if (sortedDates.length === 0) {
+        container.classList.add('hidden');
+        return;
+      }
+      container.classList.remove('hidden');
+
+      const lastDate = sortedDates[sortedDates.length - 1];
+      if (dateEl) dateEl.innerText = lastDate;
+
+      const lastDayRows = rows.filter(r => r['Datum'] && r['Datum'].trim() === lastDate);
+      const priorRows = rows.filter(r => r['Datum'] && r['Datum'].trim() !== lastDate);
+
+      // 1. Tageskönige ermitteln
+      const dayKings = [];
+      const dayRamschRows = lastDayRows.filter(r => (r['Spiel'] || '').toLowerCase() === 'ramsch');
+      if (dayRamschRows.length > 0) {
+        const maxRamsch = Math.max(...dayRamschRows.map(r => cleanNumber(r['Gewonnen'])));
+        if (maxRamsch > 0) {
+          const w = dayRamschRows.filter(r => cleanNumber(r['Gewonnen']) === maxRamsch).map(r => r['Name']);
+          dayKings.push(`🐗 Ramsch: <span class="text-amber-400 font-bold">${w.join(', ')}</span> (${maxRamsch} Siege)`);
+        }
+      }
+
+      const dayOffensivRows = lastDayRows.filter(r => (r['Spiel'] || '').toLowerCase() === 'offensiv');
+      if (dayOffensivRows.length > 0) {
+        const qualified = dayOffensivRows.filter(r => cleanNumber(r['Gewonnen']) >= 10);
+        if (qualified.length > 0) {
+          const withDiff = qualified.map(r => ({
+            name: r['Name'],
+            won: cleanNumber(r['Gewonnen']),
+            diff: cleanNumber(r['Gewonnen']) - cleanNumber(r['Verloren'])
+          }));
+          const maxDiff = Math.max(...withDiff.map(w => w.diff));
+          const topDiff = withDiff.filter(w => w.diff === maxDiff);
+          const maxWon = Math.max(...topDiff.map(w => w.won));
+          const w = topDiff.filter(w => w.won === maxWon).map(w => w.name);
+          dayKings.push(`⚡ Offensiv: <span class="text-amber-400 font-bold">${w.join(', ')}</span> (Diff +${maxDiff})`);
+        }
+      }
+
+      const daySoloRows = lastDayRows.filter(r => (r['Spiel'] || '').toLowerCase() === 'solo');
+      if (daySoloRows.length > 0) {
+        const qualified = daySoloRows.filter(r => cleanNumber(r['Gewonnen']) >= 3);
+        if (qualified.length > 0) {
+          const withDiff = qualified.map(r => ({
+            name: r['Name'],
+            won: cleanNumber(r['Gewonnen']),
+            diff: cleanNumber(r['Gewonnen']) - cleanNumber(r['Verloren'])
+          }));
+          const maxDiff = Math.max(...withDiff.map(w => w.diff));
+          const topDiff = withDiff.filter(w => w.diff === maxDiff);
+          const maxWon = Math.max(...topDiff.map(w => w.won));
+          const w = topDiff.filter(w => w.won === maxWon).map(w => w.name);
+          dayKings.push(`🗡️ Solo: <span class="text-amber-400 font-bold">${w.join(', ')}</span> (${maxWon} Siege)`);
+        }
+      }
+
+      const dayContraRows = lastDayRows.filter(r => {
+        const s = (r['Spiel'] || '').toLowerCase();
+        return s === 'contra' || s === 'kontra';
+      });
+      if (dayContraRows.length > 0) {
+        const qualified = dayContraRows.filter(r => cleanNumber(r['Gewonnen']) >= 3);
+        if (qualified.length > 0) {
+          const withDiff = qualified.map(r => ({
+            name: r['Name'],
+            won: cleanNumber(r['Gewonnen']),
+            diff: cleanNumber(r['Gewonnen']) - cleanNumber(r['Verloren'])
+          }));
+          const maxDiff = Math.max(...withDiff.map(w => w.diff));
+          const topDiff = withDiff.filter(w => w.diff === maxDiff);
+          const maxWon = Math.max(...topDiff.map(w => w.won));
+          const w = topDiff.filter(w => w.won === maxWon).map(w => w.name);
+          dayKings.push(`🛡️ Contra: <span class="text-amber-400 font-bold">${w.join(', ')}</span> (${maxWon} Siege)`);
+        }
+      }
+
+      if (kingsEl) {
+        if (dayKings.length > 0) {
+          kingsEl.innerHTML = dayKings.map(k => `
+            <span class="bg-amber-950/40 border border-amber-800/40 text-neutral-300 px-2.5 py-1 rounded-lg text-[11px] shadow-sm">
+              ${k}
+            </span>
+          `).join('');
+        } else {
+          kingsEl.innerHTML = '<span class="text-neutral-500 text-[11px]">Keine regulären Könige am Spieltag</span>';
+        }
+      }
+
+      // 2. Vorherige Jahreswertung vs. Aktuelle Jahreswertung
+      const priorStats = {};
+      const priorCatMap = { Ramsch: {}, Solo: {}, Offensiv: {}, Contra: {} };
+      const priorDaysSet = new Set();
+      const priorPlayerDays = {};
+
+      priorRows.forEach(r => {
+        const datum = r['Datum'] ? r['Datum'].trim() : null;
+        const name = r['Name'] ? r['Name'].trim() : null;
+        const spiel = r['Spiel'] ? r['Spiel'].trim() : null;
+        const total = cleanNumber(r['Spiele total']);
+        const gewonnen = cleanNumber(r['Gewonnen']);
+        if (!name || total === 0) return;
+        if (datum) {
+          priorDaysSet.add(datum);
+          if (!priorPlayerDays[name]) priorPlayerDays[name] = new Set();
+          priorPlayerDays[name].add(datum);
+        }
+        if (!priorStats[name]) priorStats[name] = { total: 0, gewonnen: 0, koenigWon: 0, koenigTotal: 0 };
+        const isK = spiel && (spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 'koenig');
+        if (isK) {
+          priorStats[name].koenigWon += gewonnen;
+          priorStats[name].koenigTotal += total;
+          return;
+        }
+        let matched = null;
+        if (spiel) {
+          const s = spiel.toLowerCase();
+          if (s === 'ramsch') matched = 'Ramsch';
+          else if (s === 'solo') matched = 'Solo';
+          else if (s === 'offensiv') matched = 'Offensiv';
+          else if (s === 'contra' || s === 'kontra') matched = 'Contra';
+        }
+        if (matched) {
+          if (!priorCatMap[matched][name]) priorCatMap[matched][name] = { spiele: 0, gewonnen: 0 };
+          priorCatMap[matched][name].spiele += total;
+          priorCatMap[matched][name].gewonnen += gewonnen;
+        }
+      });
+
+      const insights = [];
+
+      // A. Jahreswertung Trend-Analyse
+      if (priorDaysSet.size > 0) {
+        const deltas = [];
+        Object.keys(playerTotals).forEach(name => {
+          if (!priorStats[name] || !priorPlayerDays[name] || priorPlayerDays[name].size === 0) return;
+          const getPriorQuote = (catKey) => {
+            const c = priorCatMap[catKey] && priorCatMap[catKey][name];
+            return c && c.spiele > 0 ? (c.gewonnen / c.spiele) : 0;
+          };
+          const qR = getPriorQuote('Ramsch');
+          const qO = getPriorQuote('Offensiv');
+          const qS = getPriorQuote('Solo');
+          const qC = getPriorQuote('Contra');
+          const qK = priorStats[name].koenigTotal > 0 ? (priorStats[name].koenigWon / priorStats[name].koenigTotal) : 0;
+          const scorePrior = (qR + qO + qS + qC + qK) / 5;
+
+          const getCurQuote = (catKey) => {
+            const c = catMap[catKey] && catMap[catKey][name];
+            return c && c.spiele > 0 ? (c.gewonnen / c.spiele) : 0;
+          };
+          const curR = getCurQuote('Ramsch');
+          const curO = getCurQuote('Offensiv');
+          const curS = getCurQuote('Solo');
+          const curC = getCurQuote('Contra');
+          const curK = playerTotals[name].koenigTotal > 0 ? (playerTotals[name].koenigWon / playerTotals[name].koenigTotal) : 0;
+          const scoreCur = (curR + curO + curS + curC + curK) / 5;
+
+          const diffPct = (scoreCur - scorePrior) * 100;
+          deltas.push({ name, diffPct, scorePrior, scoreCur });
+        });
+
+        deltas.sort((a, b) => b.diffPct - a.diffPct);
+        const topGainer = deltas[0];
+        const topLoser = deltas[deltas.length - 1];
+
+        if (topGainer && topGainer.diffPct > 0.2) {
+          insights.push({
+            type: 'jahreswertung-up',
+            player: topGainer.name,
+            badgeBg: 'bg-emerald-950/60 border-emerald-800/50 text-emerald-300',
+            badgeText: `🚀 +${topGainer.diffPct.toFixed(1).replace('.', ',')} %`,
+            title: `Jahreswertungs-Gewinner`,
+            desc: `<strong class="text-white">${topGainer.name}</strong> steigerte seine Jahresquote am stärksten von ${(topGainer.scorePrior * 100).toFixed(1).replace('.', ',')}% auf <strong class="text-emerald-400">${(topGainer.scoreCur * 100).toFixed(1).replace('.', ',')}%</strong>.`
+          });
+        }
+
+        if (topLoser && topLoser.diffPct < -0.2 && topLoser.name !== topGainer?.name) {
+          insights.push({
+            type: 'jahreswertung-down',
+            player: topLoser.name,
+            badgeBg: 'bg-rose-950/60 border-rose-800/50 text-rose-300',
+            badgeText: `📉 ${topLoser.diffPct.toFixed(1).replace('.', ',')} %`,
+            title: `Boden verloren`,
+            desc: `<strong class="text-white">${topLoser.name}</strong> gab in der Jahreswertung Punkte ab (von ${(topLoser.scorePrior * 100).toFixed(1).replace('.', ',')}% auf ${(topLoser.scoreCur * 100).toFixed(1).replace('.', ',')}%).`
+          });
+        }
+      }
+
+      // B. Kategorien-Ausreißer & Glanzleistungen am letzten Spieltag
+      lastDayRows.forEach(r => {
+        const name = r['Name'];
+        const spiel = r['Spiel'];
+        const total = cleanNumber(r['Spiele total']);
+        const won = cleanNumber(r['Gewonnen']);
+        if (!name || total === 0 || !spiel || spiel.toLowerCase() === 'könig' || spiel.toLowerCase() === 're') return;
+
+        const dayQuote = won / total;
+        const priorC = priorCatMap[spiel] && priorCatMap[spiel][name];
+        const priorQuote = priorC && priorC.spiele > 0 ? (priorC.gewonnen / priorC.spiele) : null;
+
+        // 1. Makellose oder überragende Quote
+        if (total >= 4 && dayQuote >= 0.85) {
+          const priorInfo = priorQuote !== null ? ` (Saisonschnitt zuvor: ${Math.round(priorQuote * 100)}%)` : '';
+          insights.push({
+            type: 'top-performance',
+            player: name,
+            badgeBg: 'bg-amber-950/60 border-amber-700/50 text-amber-300',
+            badgeText: `🔥 ${Math.round(dayQuote * 100)}% Quote`,
+            title: `Top-Form in ${spiel}`,
+            desc: `<strong class="text-white">${name}</strong> glänzte in <strong class="text-amber-400">${spiel}</strong> mit <strong class="text-white">${won} Siegen aus ${total} Spielen</strong>${priorInfo}.`
+          });
+        }
+        // 2. Ungewöhnlich hohes Spielvolumen / Risiko
+        else if (spiel.toLowerCase() === 'offensiv' && total >= 18) {
+          insights.push({
+            type: 'high-activity',
+            player: name,
+            badgeBg: 'bg-blue-950/60 border-blue-800/50 text-blue-300',
+            badgeText: `⚡ ${total} Spiele`,
+            title: `Offensiv-Drang`,
+            desc: `<strong class="text-white">${name}</strong> ging voll ins Risiko und absolvierte <strong class="text-blue-400">${total} Offensiv-Spiele</strong> an diesem Spieltag.`
+          });
+        }
+        // 3. Starke Solo- oder Contra-Leistung
+        else if ((spiel.toLowerCase() === 'solo' && won >= 4) || (spiel.toLowerCase() === 'contra' && won >= 2)) {
+          insights.push({
+            type: 'specialist',
+            player: name,
+            badgeBg: 'bg-purple-950/60 border-purple-800/50 text-purple-300',
+            badgeText: `🗡️ ${won} Siege`,
+            title: `${spiel}-Gala`,
+            desc: `<strong class="text-white">${name}</strong> holte starke <strong class="text-purple-300">${won} von ${total} ${spiel}-Siegen</strong> (${Math.round(dayQuote * 100)}% Quote).`
+          });
+        }
+        // 4. Kalt erwischt
+        else if (total >= 3 && dayQuote <= 0.40 && priorQuote !== null && priorQuote >= 0.60) {
+          insights.push({
+            type: 'cold-spell',
+            player: name,
+            badgeBg: 'bg-neutral-800/80 border-neutral-700 text-neutral-400',
+            badgeText: `🌧️ ${Math.round(dayQuote * 100)}% Quote`,
+            title: `Pechsträhne in ${spiel}`,
+            desc: `<strong class="text-white">${name}</strong> erwischte in <strong class="text-neutral-300">${spiel}</strong> einen schweren Tag (nur ${won}/${total} vs. ${Math.round(priorQuote * 100)}% Schnitt).`
+          });
+        }
+      });
+
+      // Rendern
+      if (insights.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-neutral-500 py-3">Keine besonderen statistischen Auffälligkeiten für diesen Spieltag.</div>';
+        return;
+      }
+
+      grid.innerHTML = insights.map(item => `
+        <div class="bg-neutral-950/70 border border-neutral-800/80 rounded-xl p-3.5 flex flex-col justify-between space-y-2 hover:border-neutral-700 transition-all player-target" data-player="${item.player}">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-xs text-neutral-200">${item.title}</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${item.badgeBg} shrink-0 font-medium">
+              ${item.badgeText}
+            </span>
+          </div>
+          <p class="text-neutral-400 text-[11px] leading-relaxed">
+            ${item.desc}
+          </p>
+        </div>
+      `).join('');
     }
 
     let CURRENT_TREEMAP_DATA = null;
